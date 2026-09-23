@@ -585,6 +585,7 @@ export interface Transaction {
   
   // Payment & Bank
   paymentMethod: PaymentMethod;
+  bankAccountId?: string; // Actual account affected by cash movement
   bankAccountName?: string;
   isPaid: boolean;
   paidDate?: string;
