@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Transaction, BankAccount, ChartOfAccount, AgingItem } from '../types';
 import { formatRupiah, formatCompactRupiah, formatDateIndo } from '../utils/formatters';
+import { buildTrialBalance, getTrialBalanceTotals } from '../services/accountingEngine';
 import { 
   BookOpen, 
   Wallet, 
@@ -32,7 +33,9 @@ export const AccountingAndBankView: React.FC<AccountingAndBankViewProps> = ({
   const totalAP = agingItems.filter(i => i.type === 'AP').reduce((sum, i) => sum + i.outstandingBalance, 0);
   const totalAR = agingItems.filter(i => i.type === 'AR').reduce((sum, i) => sum + i.outstandingBalance, 0);
   const pettyCash = bankAccounts.find(b => b.id === 'BNK-05');
-  const [activeSubTab, setActiveSubTab] = useState<'JOURNAL' | 'BANK_RECON' | 'AP_AR' | 'PETTY_CASH'>('JOURNAL');
+  const [activeSubTab, setActiveSubTab] = useState<'JOURNAL' | 'TRIAL_BALANCE' | 'BANK_RECON' | 'AP_AR' | 'PETTY_CASH'>('JOURNAL');
+  const trialBalance = buildTrialBalance(transactions, coaList);
+  const trialBalanceTotals = getTrialBalanceTotals(trialBalance);
 
   const getAccountName = (code: string) => {
     const acc = coaList.find(c => c.code === code);
@@ -63,6 +66,14 @@ export const AccountingAndBankView: React.FC<AccountingAndBankViewProps> = ({
             Jurnal Umum Otomatis
           </button>
           <button
+            onClick={() => setActiveSubTab('TRIAL_BALANCE')}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+              activeSubTab === 'TRIAL_BALANCE' ? 'bg-white text-indigo-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            Trial Balance
+          </button>
+          <button
             onClick={() => setActiveSubTab('BANK_RECON')}
             className={`px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
               activeSubTab === 'BANK_RECON' ? 'bg-white text-indigo-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'
@@ -88,6 +99,72 @@ export const AccountingAndBankView: React.FC<AccountingAndBankViewProps> = ({
           </button>
         </div>
       </div>
+
+      {/* 1A. TRIAL BALANCE */}
+      {activeSubTab === 'TRIAL_BALANCE' && (
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div>
+              <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
+                Trial Balance / Neraca Saldo
+              </span>
+              <span className="text-[11px] text-slate-500">
+                Saldo dihitung langsung dari jurnal transaksi yang berstatus POSTED.
+              </span>
+            </div>
+            <div className={`px-3 py-1.5 rounded-lg text-xs font-bold ${
+              Math.abs(trialBalanceTotals.difference) < 0.01
+                ? 'bg-emerald-100 text-emerald-800'
+                : 'bg-rose-100 text-rose-800'
+            }`}>
+              Selisih Debit-Kredit: {formatRupiah(trialBalanceTotals.difference)}
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-100 text-slate-600 font-bold uppercase border-b border-slate-200">
+                <tr>
+                  <th className="py-3 px-4">Kode</th>
+                  <th className="py-3 px-4">Nama Akun</th>
+                  <th className="py-3 px-4">Kategori</th>
+                  <th className="py-3 px-4 text-right">Debit</th>
+                  <th className="py-3 px-4 text-right">Kredit</th>
+                  <th className="py-3 px-4 text-right">Saldo</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {trialBalance.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-10 text-center text-slate-400">
+                      Belum ada jurnal POSTED untuk dibentuk menjadi neraca saldo.
+                    </td>
+                  </tr>
+                ) : (
+                  trialBalance.map(row => (
+                    <tr key={row.accountCode} className="hover:bg-slate-50">
+                      <td className="py-2.5 px-4 font-mono font-bold text-indigo-700">{row.accountCode}</td>
+                      <td className="py-2.5 px-4 font-medium text-slate-800">{row.accountName}</td>
+                      <td className="py-2.5 px-4 text-slate-500">{row.category}</td>
+                      <td className="py-2.5 px-4 text-right font-mono">{formatRupiah(row.debit)}</td>
+                      <td className="py-2.5 px-4 text-right font-mono">{formatRupiah(row.credit)}</td>
+                      <td className="py-2.5 px-4 text-right font-mono font-bold">{formatRupiah(row.balance)}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+              <tfoot className="bg-slate-50 border-t-2 border-slate-200">
+                <tr className="font-bold">
+                  <td colSpan={3} className="py-3 px-4">TOTAL</td>
+                  <td className="py-3 px-4 text-right font-mono">{formatRupiah(trialBalanceTotals.debit)}</td>
+                  <td className="py-3 px-4 text-right font-mono">{formatRupiah(trialBalanceTotals.credit)}</td>
+                  <td className="py-3 px-4 text-right font-mono">-</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* 1. GENERAL JOURNAL (JURNAL UMUM) */}
       {activeSubTab === 'JOURNAL' && (
