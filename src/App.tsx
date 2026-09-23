@@ -271,15 +271,9 @@ export function App() {
     updateAndPersist(prev => {
       // 1. Deduct or add bank balance if isPaid
       const updatedAccounts = prev.bankAccounts.map(b => {
-        if (newTx.isPaid) {
-          if (newTx.type === 'EXPENSE') {
-            // Deduct
-            return { ...b, currentBalance: b.currentBalance - newTx.totalAmount };
-          } else if (newTx.type === 'INCOME') {
-            // Add
-            return { ...b, currentBalance: b.currentBalance + newTx.totalAmount };
-          }
-        }
+        if (!newTx.isPaid || !newTx.bankAccountId || b.id !== newTx.bankAccountId) return b;
+        if (newTx.type === 'EXPENSE') return { ...b, currentBalance: b.currentBalance - newTx.totalAmount };
+        if (newTx.type === 'INCOME') return { ...b, currentBalance: b.currentBalance + newTx.totalAmount };
         return b;
       });
 
@@ -1195,6 +1189,7 @@ export function App() {
         project={activeProject}
         parties={currentParties}
         costCodes={currentCostCodes}
+        bankAccounts={currentBankAccounts}
         onSaveTransaction={handleSaveTransaction}
       />
 
