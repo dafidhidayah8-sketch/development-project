@@ -389,7 +389,8 @@ export function App() {
         return {
           ...tx,
           approvalSteps: updatedSteps,
-          status: nextStatus
+          status: nextStatus,
+          journalPosted: allApproved
         };
       });
 
