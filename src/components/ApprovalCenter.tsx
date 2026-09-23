@@ -57,7 +57,13 @@ export const ApprovalCenter: React.FC<ApprovalCenterProps> = ({
   const handleConfirmAction = () => {
     if (!selectedTx || !actionType) return;
     const currentStep = selectedTx.approvalSteps.find(s => s.status === 'PENDING');
-    const stepNo = currentStep ? currentStep.stepNo : 1;
+    if (!currentStep) return;
+    const stepNo = currentStep.stepNo;
+    const authorized = activeRole === currentStep.roleRequired || activeRole === 'ADMIN' || activeRole === 'DIREKSI';
+    if (!authorized) {
+      setApprovalNotes('Role aktif tidak berwenang untuk langkah approval ini.');
+      return;
+    }
 
     if (actionType === 'APPROVE') {
       onApproveTransaction(selectedTx.id, stepNo, approvalNotes);
