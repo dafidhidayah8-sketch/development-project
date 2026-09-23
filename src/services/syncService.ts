@@ -20,51 +20,62 @@ export function enqueueSync(
   return [newItem, ...currentQueue];
 }
 
+/**
+ * Processes the local outbox safely.
+ *
+ * IMPORTANT: This browser-only build does not have a remote transport configured.
+ * Therefore an online browser is NOT treated as proof that data reached a server.
+ * Items are only marked SYNCED when a real transport callback confirms delivery.
+ */
 export async function processSyncQueue(
   queue: SyncOutboxItem[],
-  onProgress?: (updatedQueue: SyncOutboxItem[]) => void
-): Promise<{ success: boolean; syncedCount: number; failedCount: number; updatedQueue: SyncOutboxItem[] }> {
+  onProgress?: (updatedQueue: SyncOutboxItem[]) => void,
+  transport?: (item: SyncOutboxItem) => Promise<void>
+): Promise<{ success: boolean; syncedCount: number; failedCount: number; pendingCount: number; updatedQueue: SyncOutboxItem[] }> {
   let updatedQueue = [...queue];
   let synced = 0;
   let failed = 0;
 
   for (let i = 0; i < updatedQueue.length; i++) {
     const item = updatedQueue[i];
-    if (item.status === 'PENDING' || item.status === 'FAILED') {
-      // Mark as syncing
-      updatedQueue[i] = { ...item, status: 'SYNCING' };
-      if (onProgress) onProgress([...updatedQueue]);
+    if (item.status !== 'PENDING' && item.status !== 'FAILED') continue;
 
-      // Small async tick for real network round-trip simulation
-      await new Promise(r => setTimeout(r, 120));
+    updatedQueue[i] = { ...item, status: 'SYNCING' };
+    onProgress?.([...updatedQueue]);
 
-      // Network check
-      const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
-      if (!isOnline) {
-        updatedQueue[i] = {
-          ...item,
-          status: 'FAILED',
-          retryCount: item.retryCount + 1,
-          lastError: 'Tidak ada koneksi internet (Offline)',
-        };
-        failed++;
-      } else {
-        // Successful dispatch
-        updatedQueue[i] = {
-          ...item,
-          status: 'SYNCED',
-          lastError: undefined,
-        };
-        synced++;
-      }
-      if (onProgress) onProgress([...updatedQueue]);
+    if (!transport) {
+      updatedQueue[i] = {
+        ...item,
+        status: 'FAILED',
+        retryCount: item.retryCount + 1,
+        lastError: 'Belum ada koneksi transport remote. Data tetap aman di antrean lokal.',
+      };
+      failed++;
+      onProgress?.([...updatedQueue]);
+      continue;
     }
+
+    try {
+      await transport(item);
+      updatedQueue[i] = { ...item, status: 'SYNCED', lastError: undefined };
+      synced++;
+    } catch (error: any) {
+      updatedQueue[i] = {
+        ...item,
+        status: 'FAILED',
+        retryCount: item.retryCount + 1,
+        lastError: error?.message || 'Pengiriman remote gagal.',
+      };
+      failed++;
+    }
+    onProgress?.([...updatedQueue]);
   }
 
   return {
     success: failed === 0,
     syncedCount: synced,
     failedCount: failed,
+    pendingCount: updatedQueue.filter(i => i.status === 'PENDING' || i.status === 'SYNCING' || i.status === 'FAILED').length,
     updatedQueue,
   };
 }
