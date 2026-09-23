@@ -182,7 +182,7 @@ export const OperatorInputModal: React.FC<OperatorInputModalProps> = ({
       proofFileUrl: proofDataUrl || undefined,
       debitAccountCode: debitCode,
       creditAccountCode: creditCode,
-      journalPosted: true,
+      journalPosted: false,
       operatorName: 'Operator Lapangan (Site)',
       createdBy: 'operator_active',
       createdAt: new Date().toISOString(),
