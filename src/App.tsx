@@ -145,65 +145,57 @@ export function App() {
     initialCapital: InitialCapitalEntry,
     accounts: BankAccount[]
   ) => {
+    const baseState: AppState = {
+      activeProjectId: newProject.id,
+      projects: [...(appState?.projects || []), newProject],
+      bankAccounts: accounts,
+      capitalEntries: [...(appState?.capitalEntries || [])],
+      transactions: [...(appState?.transactions || [])],
+      parties: appState?.parties || [],
+      agingItems: appState?.agingItems || [],
+      customerARRecords: appState?.customerARRecords || [],
+      poContracts: appState?.poContracts || [],
+      alerts: appState?.alerts || [],
+      auditLogs: appState?.auditLogs || [],
+      wbsNodes: appState?.wbsNodes || [],
+      costCodes: appState?.costCodes || [],
+      workOrders: appState?.workOrders || [],
+      equipmentAssets: appState?.equipmentAssets || [],
+      internalDepartments: appState?.internalDepartments || [],
+      syncQueue: appState?.syncQueue || [],
+      integrationConfig: appState?.integrationConfig || {
+        google: { status: 'NOT_CONFIGURED' },
+        github: { status: 'NOT_CONFIGURED' },
+        cloudflare: { status: 'NOT_CONFIGURED' },
+        whatsapp: { manualModeAvailable: true, apiStatus: 'NOT_CONFIGURED' },
+      },
+    };
+
+    const tx = createCapitalTransaction(
+      baseState,
+      newProject.id,
+      initialCapital,
+      `${activeRole} Controller`,
+      activeRole
+    );
+    const posted = postTransaction(baseState, tx, `${activeRole} Controller`, activeRole);
+
+    if (!posted.validation.valid) {
+      showToast(`⚠️ Project tidak dapat dibuat: ${posted.validation.errors.join(' | ')}`);
+      return;
+    }
+
     const audit = createAuditRecord(
       'CREATE',
       newProject.id,
-      `Inisialisasi Project ${newProject.name} (${newProject.code}) dengan Modal Awal Rp ${initialCapital.amount.toLocaleString('id-ID')}`,
+      `Inisialisasi Project ${newProject.name} (${newProject.code}) melalui transaction engine dengan modal Rp ${initialCapital.amount.toLocaleString('id-ID')}`,
       `${activeRole} User`,
       activeRole
     );
 
-    const initialTx: Transaction = {
-      id: `TRX-${newProject.code}-001`,
-      projectId: newProject.id,
-      projectName: newProject.name,
-      date: initialCapital.date,
-      type: 'INCOME',
-      category: 'PENDANAAN',
-      subcategory: 'Setoran Modal / Dana Awal Disetor',
-      description: initialCapital.notes || `Setoran modal disetor awal dari ${initialCapital.sourceName}`,
-      wbsCode: '00',
-      costCode: 'MOD-001',
-      costCodeName: 'Modal Disetor & Ekuitas Pendirian Proyek',
-      partyId: 'PTY-INV-01',
-      partyName: initialCapital.sourceName,
-      partyRole: 'INVESTOR',
-      debitAccountCode: '1120', // Kas & Bank
-      creditAccountCode: '3100', // Ekuitas Modal Disetor
-      subtotal: initialCapital.amount,
-      totalAmount: initialCapital.amount,
-      paidAmount: initialCapital.amount,
-      outstandingAmount: 0,
-      paymentMethod: 'TRANSFER_BCA',
-      status: 'PAID',
-      isPaid: true,
-      journalPosted: true,
-      operatorName: `${activeRole} Controller`,
-      createdBy: `${activeRole} User`,
-      createdAt: new Date().toISOString(),
-      currentApprovalLevel: 1,
-      approvalSteps: [
-        {
-          stepNo: 1,
-          roleRequired: 'DIREKSI',
-          status: 'APPROVED',
-          approverName: `${activeRole} Lead`,
-          actionDate: new Date().toISOString(),
-          notes: 'Pengesahan setoran modal awal pendirian proyek'
-        }
-      ]
-    };
-
     const nextState: AppState = {
-      activeProjectId: newProject.id,
-      projects: [...(appState?.projects || []), newProject],
-      bankAccounts: accounts,
-      capitalEntries: [...(appState?.capitalEntries || []), initialCapital],
-      transactions: [initialTx, ...(appState?.transactions || [])],
-      parties: appState?.parties && appState.parties.length > 0 ? appState.parties : [],
-      agingItems: appState?.agingItems || [],
-      customerARRecords: appState?.customerARRecords || [],
-      poContracts: appState?.poContracts || [],
+      ...posted.state,
+      capitalEntries: [initialCapital, ...posted.state.capitalEntries],
       alerts: [
         {
           id: `ALT-INIT-${Date.now().toString().slice(-4)}`,
@@ -218,28 +210,25 @@ export function App() {
           targetRoles: ['DIREKSI', 'PROJECT_MANAGER', 'FINANCE', 'OPERATOR'],
           category: 'Setup Project',
           auditStatus: 'RESOLVED',
-        }
+        },
+        ...posted.state.alerts,
       ],
-      auditLogs: [audit, ...(appState?.auditLogs || [])],
-      wbsNodes: appState?.wbsNodes || [],
-      costCodes: appState?.costCodes || [],
-      workOrders: appState?.workOrders || [],
-      equipmentAssets: appState?.equipmentAssets || [],
-      internalDepartments: appState?.internalDepartments || [],
-      syncQueue: enqueueSync([], 'PROJECT', newProject.id, 'CREATE', newProject),
-      integrationConfig: appState?.integrationConfig || {
-        google: { status: 'NOT_CONFIGURED' },
-        github: { status: 'NOT_CONFIGURED' },
-        cloudflare: { status: 'NOT_CONFIGURED' },
-        whatsapp: { manualModeAvailable: true, apiStatus: 'NOT_CONFIGURED' },
-      },
+      auditLogs: [audit, ...posted.state.auditLogs],
+      syncQueue: enqueueSync(posted.state.syncQueue, 'PROJECT', newProject.id, 'CREATE', newProject),
+      syncQueue: enqueueSync(
+        enqueueSync(posted.state.syncQueue, 'PROJECT', newProject.id, 'CREATE', newProject),
+        'CAPITAL',
+        initialCapital.id,
+        'CREATE',
+        initialCapital
+      ),
     };
 
     setAppState(nextState);
     saveAppState(nextState);
     setIsSetupWizardOpen(false);
     setIsMigrationModalOpen(false);
-    showToast(`🎉 Project ${newProject.name} berhasil dibuat & siap digunakan!`);
+    showToast(`🎉 Project ${newProject.name} berhasil dibuat dan modal awal diposting melalui engine.`);
   };
 
   const handleSelectProject = (projectId: string) => {
