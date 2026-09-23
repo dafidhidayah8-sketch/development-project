@@ -391,6 +391,12 @@ export function App() {
   };
 
   const handleApproveTransaction = (txId: string, stepNo: number, notes: string) => {
+    const target = appState?.transactions.find(tx => tx.id === txId);
+    const currentStep = target?.approvalSteps.find(step => step.status === 'PENDING');
+    if (!target || !currentStep || currentStep.stepNo !== stepNo || (activeRole !== currentStep.roleRequired && activeRole !== 'ADMIN')) {
+      showToast('⚠️ Approval ditolak: role atau langkah aktif tidak sesuai.');
+      return;
+    }
     updateAndPersist(prev => {
       const updatedTx = prev.transactions.map(tx => {
         if (tx.id !== txId) return tx;
@@ -439,6 +445,12 @@ export function App() {
   };
 
   const handleRejectTransaction = (txId: string, stepNo: number, notes: string) => {
+    const target = appState?.transactions.find(tx => tx.id === txId);
+    const currentStep = target?.approvalSteps.find(step => step.status === 'PENDING');
+    if (!target || !currentStep || currentStep.stepNo !== stepNo || (activeRole !== currentStep.roleRequired && activeRole !== 'ADMIN')) {
+      showToast('⚠️ Penolakan ditolak: role atau langkah aktif tidak sesuai.');
+      return;
+    }
     updateAndPersist(prev => {
       const updatedTx = prev.transactions.map(tx => {
         if (tx.id !== txId) return tx;
@@ -597,10 +609,12 @@ export function App() {
         return b;
       });
 
+      const account = prev.bankAccounts.find(b => b.id === accountId);
+      const actualDifference = account?.unreconciledDifference || 0;
       const audit = createAuditRecord(
         'RECONCILE',
         accountId,
-        `Posting Jurnal Penyesuaian Rekonsiliasi Bank Rp 2.000.000 (${causeDescription})`,
+        `Posting Jurnal Penyesuaian Rekonsiliasi Bank Rp ${actualDifference.toLocaleString('id-ID')} (${causeDescription})`,
         `${activeRole} Akuntan`,
         activeRole
       );
@@ -628,10 +642,10 @@ export function App() {
               ...rec.psak72,
               contractLiabilityBalance: 0,
               recognizedRevenue: fullPrice,
-              cogsWIPTransfer: 310000000,
+              cogsWIPTransfer: rec.psak72.cogsWIPTransfer,
               handoverStatus: 'BAST_COMPLETED' as const,
               bastDate: new Date().toISOString().split('T')[0],
-              bastNo: `BAST/GAR/2026/${rec.unitNo}`,
+              bastNo: `BAST/${prev.projects.find(p => p.id === rec.projectId)?.code || 'PROJECT'}/${new Date().getFullYear()}/${rec.unitNo}`,
               notes: `BAST Resmi ditandatangani. Pendapatan Rp ${fullPrice.toLocaleString('id-ID')} sah diakui sesuai PSAK 72.`
             }
           };
@@ -642,7 +656,7 @@ export function App() {
       const audit = createAuditRecord(
         'APPROVE',
         unitId,
-        `Eksekusi BAST Unit ${unitId} & Pengakuan Pendapatan PSAK 72 (Rp 535 Juta)`,
+        `Eksekusi BAST Unit ${unitId} & Pengakuan Pendapatan PSAK 72`,
         `${activeRole} (Direksi/PM)`,
         activeRole
       );
@@ -655,7 +669,7 @@ export function App() {
       };
     });
 
-    showToast(`🏛️ PSAK 72: BAST Unit ${unitId} sukses! Pendapatan Rp 535 Jt sah diakui.`);
+    showToast(`🏛️ PSAK 72: BAST Unit ${unitId} sukses diproses. Nilai pendapatan diambil dari kontrak aktif.`);
   };
 
   const handleRecordCustomerPayment = (customerRecordId: string, scheduleId: string, amount: number) => {
@@ -1315,7 +1329,8 @@ export function App() {
               showToast('Kontrak & KTP Pa Didi terverifikasi.');
             }}
             onReconcileBankBCA={() => {
-              handlePostBankReconciliation('BNK-02', 123000000, 'Koreksi selisih mutasi kliring bank koran');
+              const bca = appState.bankAccounts.find(b => b.id === 'BNK-02');
+              if (bca) handlePostBankReconciliation(bca.id, bca.statementBalance, 'Verifikasi saldo terhadap rekening koran tersimpan');
             }}
           />
         )}
