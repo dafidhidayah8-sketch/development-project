@@ -442,7 +442,7 @@ export function createCustomerPaymentTransaction(
     invoiceNo: record.contractNo,
     receiptProofNo: schedule.id,
     debitAccountCode: '1120',
-    creditAccountCode: record.psak72.handoverStatus === 'BAST_COMPLETED' ? '4110' : '2420',
+    creditAccountCode: record.psak72.handoverStatus === 'BAST_COMPLETED' ? '1210' : '2420',
     journalPosted: true,
     operatorName: actor,
     createdBy: actor,
