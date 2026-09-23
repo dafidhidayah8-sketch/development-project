@@ -193,6 +193,21 @@ export function App() {
       activeRole
     );
 
+    const projectSyncQueue = enqueueSync(
+      posted.state.syncQueue,
+      'PROJECT',
+      newProject.id,
+      'CREATE',
+      newProject
+    );
+    const nextSyncQueue = enqueueSync(
+      projectSyncQueue,
+      'CAPITAL',
+      initialCapital.id,
+      'CREATE',
+      initialCapital
+    );
+
     const nextState: AppState = {
       ...posted.state,
       capitalEntries: [initialCapital, ...posted.state.capitalEntries],
@@ -214,14 +229,7 @@ export function App() {
         ...posted.state.alerts,
       ],
       auditLogs: [audit, ...posted.state.auditLogs],
-      syncQueue: enqueueSync(posted.state.syncQueue, 'PROJECT', newProject.id, 'CREATE', newProject),
-      syncQueue: enqueueSync(
-        enqueueSync(posted.state.syncQueue, 'PROJECT', newProject.id, 'CREATE', newProject),
-        'CAPITAL',
-        initialCapital.id,
-        'CREATE',
-        initialCapital
-      ),
+      syncQueue: nextSyncQueue,
     };
 
     setAppState(nextState);
