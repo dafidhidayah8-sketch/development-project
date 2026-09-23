@@ -1297,6 +1297,7 @@ export function App() {
             transactions={currentTransactions}
             bankAccounts={currentBankAccounts}
             coaList={INITIAL_COA}
+            agingItems={currentAgingItems}
           />
         )}
 
