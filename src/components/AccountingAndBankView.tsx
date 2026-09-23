@@ -357,19 +357,19 @@ export const AccountingAndBankView: React.FC<AccountingAndBankViewProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
             <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
               <span className="text-slate-500 block">Plafon Awal</span>
-              <span className="text-base font-bold text-slate-900">Rp 5.000.000</span>
+              <span className="text-base font-bold text-slate-900">{formatRupiah(pettyCash?.statementBalance || 0)}</span>
             </div>
             <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
               <span className="text-slate-500 block">Biaya Terpakai</span>
-              <span className="text-base font-bold text-rose-600">Rp 700.000</span>
+              <span className="text-base font-bold text-rose-600">{formatRupiah(Math.max(0, (pettyCash?.statementBalance || 0) - (pettyCash?.currentBalance || 0)))}</span>
             </div>
             <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
               <span className="text-slate-500 block">Sisa Saldo Kas Fisik</span>
-              <span className="text-base font-bold text-emerald-700">Rp 4.300.000</span>
+              <span className="text-base font-bold text-emerald-700">{formatRupiah(pettyCash?.currentBalance || 0)}</span>
             </div>
             <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-              <span className="text-slate-500 block">Pemegang Kasir</span>
-              <span className="text-base font-bold text-slate-800">Budi (Site Admin)</span>
+              <span className="text-slate-500 block">Status Rekening</span>
+              <span className="text-base font-bold text-slate-800">{pettyCash ? 'Aktif' : 'Belum tersedia'}</span>
             </div>
           </div>
         </div>
