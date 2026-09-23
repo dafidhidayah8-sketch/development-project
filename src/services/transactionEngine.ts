@@ -409,7 +409,7 @@ export function createCustomerPaymentTransaction(
     wbsCode: '09',
     costCode: 'SAL-001',
     costCodeName: 'Penerimaan Penjualan Unit',
-    partyId: record.customerId || record.id,
+    partyId: record.id,
     partyName: record.customerName,
     partyRole: 'KONSUMEN',
     quantity: 1,
