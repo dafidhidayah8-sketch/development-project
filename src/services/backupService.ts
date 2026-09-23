@@ -21,6 +21,9 @@ export function createBackupPayload(state: AppState): AppBackupPayload {
     auditLogs: state.auditLogs,
     wbsNodes: state.wbsNodes,
     costCodes: state.costCodes,
+    workOrders: state.workOrders,
+    equipmentAssets: state.equipmentAssets,
+    internalDepartments: state.internalDepartments,
     syncQueue: state.syncQueue,
     integrationConfig: state.integrationConfig,
   };
