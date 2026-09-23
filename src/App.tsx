@@ -264,6 +264,81 @@ export function App() {
     showToast('Database berhasil direset. Aplikasi kembali ke kondisi awal.');
   };
 
+  const handleAddParty = (party: Party) => {
+    updateAndPersist(prev => ({
+      ...prev,
+      parties: prev.parties.some(p => p.id === party.id) ? prev.parties : [party, ...prev.parties],
+      auditLogs: [
+        createAuditRecord('CREATE', party.id, `Master pihak ${party.name} ditambahkan`, `${activeRole} User`, activeRole),
+        ...prev.auditLogs
+      ],
+      syncQueue: enqueueSync(prev.syncQueue, 'PARTY', party.id, 'CREATE', party),
+    }));
+    showToast(`✓ Master pihak ${party.name} tersimpan.`);
+  };
+
+  const handleUpdateParty = (party: Party) => {
+    updateAndPersist(prev => ({
+      ...prev,
+      parties: prev.parties.map(p => p.id === party.id ? party : p),
+      auditLogs: [
+        createAuditRecord('UPDATE', party.id, `Master pihak ${party.name} diperbarui`, `${activeRole} User`, activeRole),
+        ...prev.auditLogs
+      ],
+      syncQueue: enqueueSync(prev.syncQueue, 'PARTY', party.id, 'UPDATE', party),
+    }));
+  };
+
+  const handleAddWorkOrder = (workOrder: AppState['workOrders'][number]) => {
+    updateAndPersist(prev => ({
+      ...prev,
+      workOrders: prev.workOrders.some(w => w.id === workOrder.id) ? prev.workOrders : [workOrder, ...prev.workOrders],
+      auditLogs: [
+        createAuditRecord('CREATE', workOrder.id, `Work Order ${workOrder.woNumber} dibuat untuk ${workOrder.destinationProjectName || 'Project umum'}`, `${activeRole} User`, activeRole),
+        ...prev.auditLogs
+      ],
+      syncQueue: enqueueSync(prev.syncQueue, 'WORK_ORDER', workOrder.id, 'CREATE', workOrder),
+    }));
+    showToast(`✓ Work Order ${workOrder.woNumber} tersimpan dan terhubung ke project tujuan.`);
+  };
+
+  const handleUpdateWorkOrder = (workOrder: AppState['workOrders'][number]) => {
+    updateAndPersist(prev => ({
+      ...prev,
+      workOrders: prev.workOrders.map(w => w.id === workOrder.id ? workOrder : w),
+      auditLogs: [
+        createAuditRecord('UPDATE', workOrder.id, `Work Order ${workOrder.woNumber} diperbarui`, `${activeRole} User`, activeRole),
+        ...prev.auditLogs
+      ],
+      syncQueue: enqueueSync(prev.syncQueue, 'WORK_ORDER', workOrder.id, 'UPDATE', workOrder),
+    }));
+  };
+
+  const handleAddEquipmentAsset = (asset: AppState['equipmentAssets'][number]) => {
+    updateAndPersist(prev => ({
+      ...prev,
+      equipmentAssets: prev.equipmentAssets.some(e => e.id === asset.id) ? prev.equipmentAssets : [asset, ...prev.equipmentAssets],
+      auditLogs: [
+        createAuditRecord('CREATE', asset.id, `Equipment/Aset ${asset.code} ${asset.name} didaftarkan`, `${activeRole} User`, activeRole),
+        ...prev.auditLogs
+      ],
+      syncQueue: enqueueSync(prev.syncQueue, 'EQUIPMENT', asset.id, 'CREATE', asset),
+    }));
+    showToast(`✓ Aset ${asset.code} tersimpan di register.`);
+  };
+
+  const handleUpdateEquipmentAsset = (asset: AppState['equipmentAssets'][number]) => {
+    updateAndPersist(prev => ({
+      ...prev,
+      equipmentAssets: prev.equipmentAssets.map(e => e.id === asset.id ? asset : e),
+      auditLogs: [
+        createAuditRecord('UPDATE', asset.id, `Equipment/Aset ${asset.code} diperbarui`, `${activeRole} User`, activeRole),
+        ...prev.auditLogs
+      ],
+      syncQueue: enqueueSync(prev.syncQueue, 'EQUIPMENT', asset.id, 'UPDATE', asset),
+    }));
+  };
+
   // ---------------------------------------------------------------------------
   // TRANSACTIONS & CASH ENGINE
   // ---------------------------------------------------------------------------
@@ -969,6 +1044,17 @@ export function App() {
                     </button>
 
                     <button
+                      onClick={() => { setActiveTab('mitra'); setIsMoreMenuOpen(false); }}
+                      className="w-full text-left flex items-center gap-2.5 px-3 py-2 text-xs text-slate-300 hover:bg-slate-800/60 hover:text-white cursor-pointer"
+                    >
+                      <Briefcase className="w-4 h-4 text-cyan-400 shrink-0" />
+                      <div>
+                        <div className="font-semibold">Mitra, Workshop &amp; Equipment</div>
+                        <div className="text-[10px] text-slate-500">Master pihak, fabrikasi, lifting, aset &amp; alokasi biaya</div>
+                      </div>
+                    </button>
+
+                    <button
                       onClick={() => { setActiveTab('control_checks'); setIsMoreMenuOpen(false); }}
                       className="w-full text-left flex items-center gap-2.5 px-3 py-2 text-xs text-slate-300 hover:bg-slate-800/60 hover:text-white cursor-pointer"
                     >
@@ -1059,6 +1145,7 @@ export function App() {
                 { id: 'aging', label: 'AP & AR Aging', icon: CalendarClock },
                 { id: 'customer_ar', label: 'AR & PSAK 72', icon: FileCheck2 },
                 { id: 'po_tracking', label: 'PO & Kontrak Rekanan', icon: Briefcase },
+                { id: 'mitra', label: 'Mitra, Workshop & Equipment', icon: Briefcase },
                 { id: 'control_checks', label: 'Control Checks & Audit', icon: ShieldAlert },
                 { id: 'notification_history', label: 'Notification History', icon: History }
               ].map(item => {
@@ -1165,6 +1252,25 @@ export function App() {
             contracts={currentPoContracts}
             onUpdateOpname={handleUpdateOpname}
             onPayContractTermin={handlePayContractTermin}
+          />
+        )}
+
+        {activeTab === 'mitra' && (
+          <MitraAndInternalServicesView
+            parties={currentParties}
+            workOrders={appState.workOrders}
+            equipmentAssets={appState.equipmentAssets}
+            internalDepartments={appState.internalDepartments}
+            projects={appState.projects}
+            wbsNodes={currentWbsNodes}
+            costCodes={currentCostCodes}
+            activeRole={activeRole}
+            onAddParty={handleAddParty}
+            onUpdateParty={handleUpdateParty}
+            onAddWorkOrder={handleAddWorkOrder}
+            onUpdateWorkOrder={handleUpdateWorkOrder}
+            onAddEquipmentAsset={handleAddEquipmentAsset}
+            onUpdateEquipmentAsset={handleUpdateEquipmentAsset}
           />
         )}
 
