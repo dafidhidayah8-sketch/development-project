@@ -119,46 +119,53 @@ export const AccountingAndBankView: React.FC<AccountingAndBankViewProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {transactions.map((tx) => (
-                  <React.Fragment key={tx.id}>
-                    {/* Debit Line */}
-                    <tr className="hover:bg-slate-50">
-                      <td className="py-2.5 px-4 font-mono font-medium text-slate-800" rowSpan={2}>
-                        <div>{formatDateIndo(tx.date)}</div>
-                        <div className="text-[11px] text-indigo-700">{tx.id}</div>
-                      </td>
-                      <td className="py-2.5 px-4 font-medium text-slate-900" rowSpan={2}>
-                        <div>{tx.subcategory}</div>
-                        <div className="text-[11px] text-slate-500">{tx.description}</div>
-                        <div className="text-[10px] text-slate-400 mt-0.5">
-                          Cost Code: {tx.costCode} • Party: {tx.partyName}
-                        </div>
-                      </td>
-                      <td className="py-2.5 px-4 font-mono font-medium text-slate-800">
-                        {getAccountName(tx.debitAccountCode)}
-                      </td>
-                      <td className="py-2.5 px-4 text-right font-mono font-bold text-slate-900">
-                        {formatRupiah(tx.totalAmount)}
-                      </td>
-                      <td className="py-2.5 px-4 text-right text-slate-300">-</td>
-                      <td className="py-2.5 px-4 text-center" rowSpan={2}>
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
-                          POSTED
-                        </span>
-                      </td>
-                    </tr>
-                    {/* Credit Line (Indented) */}
-                    <tr className="hover:bg-slate-50 border-b border-slate-200">
-                      <td className="py-2.5 px-4 font-mono font-medium text-slate-600 pl-8">
-                        └── {getAccountName(tx.creditAccountCode)}
-                      </td>
-                      <td className="py-2.5 px-4 text-right text-slate-300">-</td>
-                      <td className="py-2.5 px-4 text-right font-mono font-bold text-slate-900">
-                        {formatRupiah(tx.totalAmount)}
-                      </td>
-                    </tr>
-                  </React.Fragment>
-                ))}
+                {transactions.map((tx) => {
+                  const journalLines = tx.journalLines && tx.journalLines.length > 0
+                    ? tx.journalLines
+                    : [
+                        { accountCode: tx.debitAccountCode, debit: tx.totalAmount, credit: 0 },
+                        { accountCode: tx.creditAccountCode, debit: 0, credit: tx.totalAmount },
+                      ];
+                  return (
+                    <React.Fragment key={tx.id}>
+                      {journalLines.map((line, index) => (
+                        <tr key={`${tx.id}-${line.accountCode}-${index}`} className="hover:bg-slate-50 border-b border-slate-100">
+                          {index === 0 && (
+                            <>
+                              <td className="py-2.5 px-4 font-mono font-medium text-slate-800" rowSpan={journalLines.length}>
+                                <div>{formatDateIndo(tx.date)}</div>
+                                <div className="text-[11px] text-indigo-700">{tx.id}</div>
+                              </td>
+                              <td className="py-2.5 px-4 font-medium text-slate-900" rowSpan={journalLines.length}>
+                                <div>{tx.subcategory}</div>
+                                <div className="text-[11px] text-slate-500">{tx.description}</div>
+                                <div className="text-[10px] text-slate-400 mt-0.5">
+                                  Cost Code: {tx.costCode} • Party: {tx.partyName}
+                                </div>
+                              </td>
+                            </>
+                          )}
+                          <td className={`py-2.5 px-4 font-mono font-medium ${index > 0 ? 'text-slate-600 pl-8' : 'text-slate-800'}`}>
+                            {index > 0 ? '└── ' : ''}{getAccountName(line.accountCode)}
+                          </td>
+                          <td className="py-2.5 px-4 text-right font-mono font-bold text-slate-900">
+                            {line.debit > 0 ? formatRupiah(line.debit) : '-'}
+                          </td>
+                          <td className="py-2.5 px-4 text-right font-mono font-bold text-slate-900">
+                            {line.credit > 0 ? formatRupiah(line.credit) : '-'}
+                          </td>
+                          {index === 0 && (
+                            <td className="py-2.5 px-4 text-center" rowSpan={journalLines.length}>
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${tx.journalPosted ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                                {tx.journalPosted ? 'POSTED' : 'MENUNGGU OTORISASI'}
+                              </span>
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                    </React.Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>
