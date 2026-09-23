@@ -596,44 +596,83 @@ export function App() {
 
   // PSAK 72 & PO Operations
   const handleProcessBAST = (unitId: string) => {
-    updateAndPersist(prev => {
-      const updatedCustomerAR = prev.customerARRecords.map(rec => {
-        if (rec.unitId === unitId) {
-          const fullPrice = rec.sellingPrice;
-          return {
-            ...rec,
-            psak72: {
-              ...rec.psak72,
-              contractLiabilityBalance: 0,
-              recognizedRevenue: fullPrice,
-              cogsWIPTransfer: rec.psak72.cogsWIPTransfer,
-              handoverStatus: 'BAST_COMPLETED' as const,
-              bastDate: new Date().toISOString().split('T')[0],
-              bastNo: `BAST/${prev.projects.find(p => p.id === rec.projectId)?.code || 'PROJECT'}/${new Date().getFullYear()}/${rec.unitNo}`,
-              notes: `BAST Resmi ditandatangani. Pendapatan Rp ${fullPrice.toLocaleString('id-ID')} sah diakui sesuai PSAK 72.`
-            }
-          };
+    if (!appState) return;
+    const record = appState.customerARRecords.find(rec => rec.unitId === unitId);
+    if (!record) {
+      showToast('⚠️ Unit/kontrak konsumen tidak ditemukan.');
+      return;
+    }
+    if (record.psak72.handoverStatus === 'BAST_COMPLETED') {
+      showToast(`ℹ️ BAST Unit ${unitId} sudah selesai. Engine tidak memposting ulang jurnal.`);
+      return;
+    }
+
+    try {
+      let nextState = appState;
+      const bastTransactions = createBASTRecognitionTransactions(appState, record, `${activeRole} Controller`, activeRole);
+      for (const tx of bastTransactions) {
+        const posted = postTransaction(nextState, tx, `${activeRole} Controller`, activeRole);
+        if (!posted.validation.valid) {
+          showToast(`⚠️ BAST ditolak engine: ${posted.validation.errors.join(' | ')}`);
+          return;
         }
-        return rec;
-      });
+        nextState = posted.state;
+      }
 
-      const audit = createAuditRecord(
-        'APPROVE',
-        unitId,
-        `Eksekusi BAST Unit ${unitId} & Pengakuan Pendapatan PSAK 72`,
-        `${activeRole} (Direksi/PM)`,
-        activeRole
-      );
+      const today = new Date().toISOString().split('T')[0];
+      const fullPrice = record.sellingPrice;
+      const updatedCustomerAR = nextState.customerARRecords.map(rec => rec.id === record.id ? {
+        ...rec,
+        psak72: {
+          ...rec.psak72,
+          contractLiabilityBalance: 0,
+          recognizedRevenue: fullPrice,
+          handoverStatus: 'BAST_COMPLETED' as const,
+          bastDate: today,
+          bastNo: `BAST/${nextState.projects.find(p => p.id === rec.projectId)?.code || 'PROJECT'}/${new Date().getFullYear()}/${rec.unitNo}`,
+          notes: `BAST selesai. Pendapatan kontrak Rp ${fullPrice.toLocaleString('id-ID')} diposting melalui engine.`
+        }
+      } : rec);
 
-      return {
-        ...prev,
+      const updatedProjects = nextState.projects.map(project => ({
+        ...project,
+        units: project.units.map(unit => unit.id === unitId ? {
+          ...unit,
+          status: 'HANDED_OVER' as const,
+          bastDate: today,
+          paidAmount: record.totalPaid,
+          outstandingAR: Math.max(0, record.sellingPrice - record.totalPaid)
+        } : unit)
+      }));
+
+      const finalState = {
+        ...nextState,
         customerARRecords: updatedCustomerAR,
-        auditLogs: [audit, ...prev.auditLogs],
-        syncQueue: enqueueSync(prev.syncQueue, 'TRANSACTION', unitId, 'UPDATE', { BAST: true }),
+        projects: updatedProjects,
+        auditLogs: [
+          createAuditRecord(
+            'APPROVE',
+            unitId,
+            `BAST Unit ${unitId} selesai; revenue recognition dan transfer HPP diposting.`,
+            `${activeRole} Controller`,
+            activeRole
+          ),
+          ...nextState.auditLogs,
+        ],
+        syncQueue: enqueueSync(nextState.syncQueue, 'CUSTOMER_AR', record.id, 'UPDATE', {
+          event: 'BAST_COMPLETED',
+          unitId,
+          revenue: fullPrice,
+          totalPaid: record.totalPaid,
+        }),
       };
-    });
 
-    showToast(`🏛️ PSAK 72: BAST Unit ${unitId} sukses diproses. Nilai pendapatan diambil dari kontrak aktif.`);
+      setAppState(finalState);
+      saveAppState(finalState);
+      showToast(`🏛️ BAST Unit ${unitId} selesai; jurnal revenue/HPP dan status unit sudah terhubung.`);
+    } catch (error: any) {
+      showToast(`⚠️ BAST gagal: ${error?.message || 'Engine error'}`);
+    }
   };
 
   const handleRecordCustomerPayment = (customerRecordId: string, scheduleId: string, amount: number) => {
