@@ -30,27 +30,23 @@ export const BankReconciliationModal: React.FC<BankReconciliationModalProps> = (
 
   if (!isOpen) return null;
 
-  // Initial values as specified in user brief:
-  // Saldo Buku: Rp 123.000.000
-  // Saldo Bank (Rekening Koran): Rp 125.000.000
-  // Selisih: Rp 2.000.000
-  const statementBalance = bankAccount.statementBalance || 123000000;
-  const currentBalance = bankAccount.currentBalance || 125000000;
-  const diff = Math.abs(currentBalance - statementBalance);
+  const bookBalance = bankAccount.currentBalance;
+  const bankStatementBalance = bankAccount.statementBalance;
+  const diff = Math.abs(bookBalance - bankStatementBalance);
 
   const handleReconcile = () => {
     setIsSubmitting(true);
     setTimeout(() => {
-      let causeText = 'Bunga giro bank Rp 2.150.000 dan biaya administrasi bank Rp 150.000';
+      let causeText = 'Penyesuaian setelah verifikasi rekening koran';
       if (selectedCause === 'SETORAN_KLIRING') {
-        causeText = 'Setoran kliring bilyet giro konsumen belum tercermin di mutasi buku';
+        causeText = 'Setoran kliring / deposit in transit yang telah diverifikasi';
       } else if (selectedCause === 'CEK_BEREDAR') {
-        causeText = 'Cek pembayaran kontraktor belum dicairkan oleh rekanan (Outstanding Check)';
+        causeText = 'Cek/giro outstanding yang telah diverifikasi';
       }
 
       onPostReconciliationAdjustment(
         bankAccount.id,
-        currentBalance,
+        bankStatementBalance,
         causeText
       );
       setIsSubmitting(false);
@@ -98,7 +94,7 @@ export const BankReconciliationModal: React.FC<BankReconciliationModalProps> = (
               </div>
               <h4 className="text-lg font-bold text-slate-900">Rekonsiliasi Selesai &amp; Selisih Dinolkan!</h4>
               <p className="text-xs text-slate-500 max-w-md mx-auto">
-                Jurnal penyesuaian bunga &amp; admin bank telah diposting otomatis ke buku besar. Saldo buku dan saldo rekening koran kini telah cocok (Rp {formatRupiah(currentBalance)}).
+                Setelah penyesuaian disetujui, saldo buku disejajarkan dengan saldo rekening koran terverifikasi (Rp {formatRupiah(bankStatementBalance)}).
               </p>
             </div>
           ) : (
@@ -108,7 +104,7 @@ export const BankReconciliationModal: React.FC<BankReconciliationModalProps> = (
                 <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-center">
                   <span className="text-[11px] text-slate-500 font-medium block">Saldo Menurut Buku (GL)</span>
                   <span className="text-base font-bold text-slate-900 mt-1 block">
-                    {formatRupiah(statementBalance)}
+                    {formatRupiah(bookBalance)}
                   </span>
                   <span className="text-[10px] text-slate-400">Catatan Kasir</span>
                 </div>
@@ -116,7 +112,7 @@ export const BankReconciliationModal: React.FC<BankReconciliationModalProps> = (
                 <div className="p-3.5 bg-indigo-50/70 rounded-xl border border-indigo-200 text-center">
                   <span className="text-[11px] text-indigo-800 font-medium block">Saldo Rekening Koran</span>
                   <span className="text-base font-bold text-indigo-700 mt-1 block">
-                    {formatRupiah(currentBalance)}
+                    {formatRupiah(bankStatementBalance)}
                   </span>
                   <span className="text-[10px] text-indigo-500">Mutasi e-Banking</span>
                 </div>
@@ -142,7 +138,7 @@ export const BankReconciliationModal: React.FC<BankReconciliationModalProps> = (
                     className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-800 font-semibold text-xs focus:ring-2 focus:ring-indigo-500"
                   >
                     <option value="BUNGA_DAN_ADMIN">
-                      Bunga Giro (+Rp 2.150.000) &amp; Biaya Administrasi Bank (-Rp 150.000) [Net Rp 2.000.000]
+                      Penyesuaian saldo setelah verifikasi rekening koran
                     </option>
                     <option value="SETORAN_KLIRING">
                       Setoran Titipan Konsumen dalam Kliring (Deposit in Transit)
