@@ -62,6 +62,18 @@ export function validateTransaction(state: AppState, tx: Transaction): EngineVal
   if (!tx.id || !tx.projectId) errors.push('Transaksi wajib memiliki ID dan Project ID.');
   if (!tx.totalAmount || tx.totalAmount <= 0) errors.push('Nilai transaksi harus lebih besar dari 0.');
 
+  const journalLines = tx.journalLines?.length
+    ? tx.journalLines
+    : [
+        { accountCode: tx.debitAccountCode, debit: tx.totalAmount, credit: 0 },
+        { accountCode: tx.creditAccountCode, debit: 0, credit: tx.totalAmount },
+      ];
+  const debitTotal = journalLines.reduce((sum, line) => sum + money(line.debit), 0);
+  const creditTotal = journalLines.reduce((sum, line) => sum + money(line.credit), 0);
+  if (Math.abs(debitTotal - creditTotal) > 0.01) {
+    errors.push('Jurnal transaksi tidak balance: total debit harus sama dengan total kredit.');
+  }
+
   const project = state.projects.find(p => p.id === tx.projectId);
   if (!project) errors.push(`Project ${tx.projectId} tidak ditemukan.`);
 
@@ -274,6 +286,11 @@ export function postTransaction(
   const cash = applyCashMovement(bankAccounts, tx);
   bankAccounts = cash.accounts;
 
+  const normalizedTransaction: Transaction = {
+    ...tx,
+    journalPosted: ['POSTED', 'PAID', 'RECONCILED', 'CLOSED'].includes(tx.status),
+  };
+
   const stateWithCore: AppState = {
     ...state,
     projects,
@@ -281,7 +298,7 @@ export function postTransaction(
     wbsNodes,
     bankAccounts,
     parties: updatePartyExposure(state.parties, tx),
-    transactions: [tx, ...state.transactions],
+    transactions: [normalizedTransaction, ...state.transactions],
     auditLogs: [
       createAuditRecord(
         'CREATE',
