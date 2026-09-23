@@ -82,6 +82,9 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
 
   // Calculations
   const totalCash = bankAccounts.reduce((acc, curr) => acc + curr.currentBalance, 0);
+  const availableCash = bankAccounts
+    .filter(account => !account.name.toLowerCase().includes('escrow') && !account.name.toLowerCase().includes('kpr'))
+    .reduce((acc, curr) => acc + curr.currentBalance, 0);
   const minCashBuffer = 100000000; // Rp 100 Juta minimum safety liquidity buffer
   const isLiquidityWarning = totalCash < minCashBuffer;
 
@@ -366,7 +369,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
               <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">TOTAL KAS &amp; BANK</div>
               <div className="flex items-baseline justify-between mt-0.5">
                 <span className="text-3xl font-extrabold text-slate-900">{formatCompactRupiah(totalCash)}</span>
-                <span className="text-[11px] font-bold text-emerald-700">Avail: {formatCompactRupiah(168800000)}</span>
+                <span className="text-[11px] font-bold text-emerald-700">Avail: {formatCompactRupiah(availableCash)}</span>
               </div>
             </div>
 
@@ -435,7 +438,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
                 <span>Jatuh tempo ≤ 7 hari: <strong>{formatCompactRupiah(apDueSoon)}</strong></span>
                 <span className="text-rose-600 font-bold">Overdue: {formatCompactRupiah(apOverdue)}</span>
               </div>
-              <div className="text-[10px] text-slate-400 mt-0.5">Supplier: Rp 215 Jt • Mandor: Rp 172.5 Jt</div>
+              <div className="text-[10px] text-slate-400 mt-0.5">Nilai bersumber dari AP Aging aktif.</div>
             </div>
 
             {/* AR Section (Issue 6) */}
@@ -448,7 +451,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
                 <span>Jatuh tempo: <strong>{formatCompactRupiah(arDueSoon)}</strong></span>
                 <span className="text-rose-600 font-bold">Overdue: {formatCompactRupiah(arOverdue)}</span>
               </div>
-              <div className="text-[10px] text-slate-400 mt-0.5">KPR SP3K Siap Cair: Rp 615 Jt</div>
+              <div className="text-[10px] text-slate-400 mt-0.5">Nilai bersumber dari AR Aging aktif.</div>
             </div>
           </div>
 
@@ -529,7 +532,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
                       className="font-bold text-rose-600 hover:text-rose-800 underline flex items-center gap-1 cursor-pointer"
                       title="Klik untuk membuka Rekonsiliasi Bank"
                     >
-                      <span>{formatRupiah(bca?.unreconciledDifference || 2000000)}</span>
+                      <span>{formatRupiah(bca?.unreconciledDifference || 0)}</span>
                       <span className="text-[10px] text-indigo-600 font-normal">[Rekonsiliasi]</span>
                     </button>
                   ) : (
