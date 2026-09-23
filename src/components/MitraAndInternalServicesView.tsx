@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { 
-  Party, 
+  Party,
+  Transaction,
   WorkOrder, 
   EquipmentAsset, 
   InternalDepartment, 
@@ -47,6 +48,7 @@ interface MitraAndInternalServicesViewProps {
   equipmentAssets: EquipmentAsset[];
   internalDepartments: InternalDepartment[];
   projects: Project[];
+  transactions: Transaction[];
   wbsNodes: WBSNode[];
   costCodes: CostCode[];
   activeRole: UserRole;
@@ -64,6 +66,7 @@ export const MitraAndInternalServicesView: React.FC<MitraAndInternalServicesView
   equipmentAssets,
   internalDepartments,
   projects,
+  transactions,
   wbsNodes,
   costCodes,
   activeRole,
@@ -111,44 +114,10 @@ export const MitraAndInternalServicesView: React.FC<MitraAndInternalServicesView
   const [woTargetProject, setWoTargetProject] = useState(projects[0]?.id || '');
   const [woNotes, setWoNotes] = useState('');
 
-  // Live Allocation Simulator in Tab 4
-  const [allocTotalAmount, setAllocTotalAmount] = useState<number>(80000000);
-  const [allocItems, setAllocItems] = useState<CostAllocationItem[]>([
-    {
-      id: 'ALC-SIM-1',
-      projectId: projects[0]?.id || 'PRJ-GRAHA-01',
-      projectName: projects[0]?.name || 'Perumahan Graha Asri Residence',
-      block: 'Blok A',
-      wbsCode: '05',
-      costCode: 'BLD-002',
-      costCodeName: 'Struktur Beton Bertulang',
-      costCenter: 'Unit Lifting & Workshop',
-      percentage: 60,
-      amount: 48000000,
-      notes: 'Pemanfaatan lifting struktur beton Blok A'
-    },
-    {
-      id: 'ALC-SIM-2',
-      projectId: projects[0]?.id || 'PRJ-GRAHA-01',
-      projectName: projects[0]?.name || 'Perumahan Graha Asri Residence',
-      block: 'Blok B',
-      wbsCode: '05',
-      costCode: 'BLD-002',
-      costCodeName: 'Struktur Beton Bertulang',
-      costCenter: 'Unit Lifting & Workshop',
-      percentage: 40,
-      amount: 32000000,
-      notes: 'Pemanfaatan lifting struktur beton Blok B'
-    }
-  ]);
+  // Live allocations are read from posted transactions; there is no standalone demo ledger.
+  const liveAllocations = transactions.flatMap(transaction => transaction.allocations || []);
 
-  // Calculations
-  const totalAllocatedAmount = allocItems.reduce((sum, item) => sum + item.amount, 0);
-  const totalAllocatedPercent = allocItems.reduce((sum, item) => sum + item.percentage, 0);
-  const allocationDifference = allocTotalAmount - totalAllocatedAmount;
-  const isAllocationBalanced = Math.abs(allocationDifference) < 1 && Math.abs(totalAllocatedPercent - 100) < 0.1;
-
-  // Grand stats
+    // Grand stats
   const internalCount = parties.filter(p => p.relationshipType === 'INTERNAL_DEPARTMENT').length;
   const relatedCount = parties.filter(p => p.relationshipType === 'RELATED_PARTY' || p.relatedPartyInfo?.isRelatedParty).length;
   const externalVendorCount = parties.filter(p => p.relationshipType === 'EXTERNAL_VENDOR' || p.relationshipType === 'CONTRACTOR' || p.relationshipType === 'SUBCONTRACTOR').length;
@@ -248,36 +217,6 @@ export const MitraAndInternalServicesView: React.FC<MitraAndInternalServicesView
     setWoTitle('');
     setWoOutputName('');
     setWoNotes('');
-  };
-
-  const handleAutoBalanceAllocation = () => {
-    if (allocItems.length === 0) return;
-    const equalPercent = 100 / allocItems.length;
-    const updated = allocItems.map((item, idx) => {
-      const pct = idx === allocItems.length - 1 
-        ? Math.round((100 - (equalPercent * (allocItems.length - 1))) * 10) / 10 
-        : Math.round(equalPercent * 10) / 10;
-      return {
-        ...item,
-        percentage: pct,
-        amount: Math.round((pct / 100) * allocTotalAmount)
-      };
-    });
-    setAllocItems(updated);
-  };
-
-  const handleUpdateItemPercent = (id: string, newPct: number) => {
-    const updated = allocItems.map(item => {
-      if (item.id === id) {
-        return {
-          ...item,
-          percentage: newPct,
-          amount: Math.round((newPct / 100) * allocTotalAmount)
-        };
-      }
-      return item;
-    });
-    setAllocItems(updated);
   };
 
   return (
@@ -834,133 +773,63 @@ export const MitraAndInternalServicesView: React.FC<MitraAndInternalServicesView
                   <Split className="w-5 h-5 text-indigo-600" /> Mesin Alokasi Biaya Lintas Proyek / Unit
                 </h2>
                 <p className="text-xs text-slate-600 mt-0.5">
-                  Satu transaksi biaya dapat dipecah ke beberapa proyek, WBS, cost code, atau blok unit. <strong>Total alokasi wajib tepat 100%</strong> (atau selisih Rp 0).
+                  Sumber data berasal langsung dari transaksi yang memiliki allocation detail. Tidak ada ledger simulasi terpisah.
                 </p>
               </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleAutoBalanceAllocation}
-                  className="px-3.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-lg border border-indigo-200 flex items-center gap-1.5 transition"
-                >
-                  <Sparkles className="w-3.5 h-3.5" /> Seimbangkan Otomatis (Auto-Balance)
-                </button>
+              <div className="px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-xs">
+                <span className="text-slate-500">Transaksi beralokasi:</span>
+                <strong className="ml-1 text-slate-900">{transactions.filter(t => (t.allocations || []).length > 0).length}</strong>
               </div>
             </div>
 
-            {/* Total Transaction Input Simulator */}
-            <div className="mt-5 p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col md:flex-row items-center justify-between gap-4">
-              <div className="flex-1 w-full">
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1">
-                  Nilai Transaksi yang Dialokasikan (Simulasi)
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">Rp</span>
-                  <input
-                    type="number"
-                    value={allocTotalAmount}
-                    onChange={(e) => {
-                      const val = parseFloat(e.target.value) || 0;
-                      setAllocTotalAmount(val);
-                      // recompute amounts
-                      setAllocItems(allocItems.map(it => ({
-                        ...it,
-                        amount: Math.round((it.percentage / 100) * val)
-                      })));
-                    }}
-                    className="w-full pl-10 pr-4 py-2 text-base font-bold font-mono text-slate-900 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900"
-                  />
-                </div>
+            {liveAllocations.length === 0 ? (
+              <div className="mt-6 p-8 text-center rounded-xl border border-dashed border-slate-300 bg-slate-50">
+                <AlertCircle className="w-9 h-9 text-slate-400 mx-auto mb-2" />
+                <div className="text-sm font-bold text-slate-700">Belum ada transaksi dengan alokasi multi-target.</div>
+                <div className="text-xs text-slate-500 mt-1">Allocation detail akan muncul otomatis setelah transaksi diposting melalui transaction engine.</div>
               </div>
-
-              {/* Status Indicator */}
-              <div className="w-full md:w-auto">
-                <div className={`p-3 rounded-lg border flex items-center gap-3 ${
-                  isAllocationBalanced 
-                    ? 'bg-emerald-50 border-emerald-300 text-emerald-900' 
-                    : 'bg-rose-50 border-rose-300 text-rose-900'
-                }`}>
-                  {isAllocationBalanced ? (
-                    <CheckCircle2 className="w-6 h-6 text-emerald-600 flex-shrink-0" />
-                  ) : (
-                    <AlertCircle className="w-6 h-6 text-rose-600 flex-shrink-0" />
-                  )}
-                  <div>
-                    <div className="text-xs font-bold uppercase">
-                      {isAllocationBalanced ? 'VALID: Alokasi Seimbang 100%' : 'ALLOCATION ERROR: Belum Seimbang'}
-                    </div>
-                    <div className="text-xs font-mono mt-0.5">
-                      Total: {totalAllocatedPercent.toFixed(1)}% ({formatRupiah(totalAllocatedAmount)})
-                      {!isAllocationBalanced && ` • Selisih: ${formatRupiah(allocationDifference)}`}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Allocation Items Table */}
-            <div className="mt-6 overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead>
-                  <tr className="bg-slate-100 text-slate-600 text-xs font-semibold uppercase">
-                    <th className="p-3 rounded-l-lg">Target Proyek</th>
-                    <th className="p-3">Blok / Unit</th>
-                    <th className="p-3">WBS &amp; Cost Code</th>
-                    <th className="p-3">Cost Center</th>
-                    <th className="p-3 text-right">Persentase (%)</th>
-                    <th className="p-3 text-right rounded-r-lg">Nilai Rupiah</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {allocItems.map((item) => (
-                    <tr key={item.id} className="hover:bg-slate-50/80">
-                      <td className="p-3 font-semibold text-slate-900">
-                        {item.projectName}
+            ) : (
+              <div className="mt-6 overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="bg-slate-100 text-slate-600 text-xs font-semibold uppercase">
+                      <th className="p-3 rounded-l-lg">Target Proyek</th>
+                      <th className="p-3">Blok / Unit</th>
+                      <th className="p-3">WBS &amp; Cost Code</th>
+                      <th className="p-3">Cost Center</th>
+                      <th className="p-3 text-right">Persentase</th>
+                      <th className="p-3 text-right">Nilai</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {liveAllocations.map(item => (
+                      <tr key={item.id} className="hover:bg-slate-50/80">
+                        <td className="p-3 font-semibold text-slate-900">{item.projectName}</td>
+                        <td className="p-3 text-slate-600">{item.block || item.unitId || '-'}</td>
+                        <td className="p-3">
+                          <span className="font-mono text-xs font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded">{item.costCode}</span>
+                          <span className="text-xs text-slate-600 ml-1.5">{item.costCodeName || '-'}</span>
+                        </td>
+                        <td className="p-3 text-xs text-slate-600">{item.costCenter || '-'}</td>
+                        <td className="p-3 text-right font-mono font-bold text-slate-900">{item.percentage.toFixed(2)}%</td>
+                        <td className="p-3 text-right font-mono font-bold text-slate-900">{formatRupiah(item.amount)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t-2 border-slate-200 font-bold text-sm bg-slate-50">
+                      <td colSpan={4} className="p-3 text-slate-700">Total</td>
+                      <td className="p-3 text-right font-mono text-indigo-700">
+                        {liveAllocations.reduce((sum, item) => sum + item.percentage, 0).toFixed(2)}%
                       </td>
-                      <td className="p-3 text-slate-600">
-                        {item.block || '-'}
-                      </td>
-                      <td className="p-3">
-                        <span className="font-mono text-xs font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded">
-                          {item.costCode}
-                        </span>
-                        <span className="text-xs text-slate-600 ml-1.5">{item.costCodeName}</span>
-                      </td>
-                      <td className="p-3 text-xs text-slate-600">
-                        {item.costCenter}
-                      </td>
-                      <td className="p-3 text-right">
-                        <div className="inline-flex items-center gap-1">
-                          <input
-                            type="number"
-                            min="0"
-                            max="100"
-                            value={item.percentage}
-                            onChange={(e) => handleUpdateItemPercent(item.id, parseFloat(e.target.value) || 0)}
-                            className="w-16 px-2 py-1 text-right text-xs font-mono font-bold border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-slate-900"
-                          />
-                          <span className="text-xs text-slate-400 font-bold">%</span>
-                        </div>
-                      </td>
-                      <td className="p-3 text-right font-mono font-bold text-slate-900">
-                        {formatRupiah(item.amount)}
+                      <td className="p-3 text-right font-mono text-indigo-700">
+                        {formatRupiah(liveAllocations.reduce((sum, item) => sum + item.amount, 0))}
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr className="border-t-2 border-slate-200 font-bold text-sm bg-slate-50">
-                    <td colSpan={4} className="p-3 text-slate-700">Total Akumulasi Alokasi</td>
-                    <td className={`p-3 text-right font-mono ${isAllocationBalanced ? 'text-emerald-700' : 'text-rose-600'}`}>
-                      {totalAllocatedPercent.toFixed(1)}%
-                    </td>
-                    <td className={`p-3 text-right font-mono ${isAllocationBalanced ? 'text-emerald-700' : 'text-rose-600'}`}>
-                      {formatRupiah(totalAllocatedAmount)}
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
+                  </tfoot>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}
