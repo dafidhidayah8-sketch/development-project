@@ -175,26 +175,6 @@ export const BankReconciliationModal: React.FC<BankReconciliationModalProps> = (
                   </div>
                 </div>
               </div>
-                  <div className="font-mono text-[11px] space-y-1 bg-white p-2.5 rounded-lg border border-slate-200">
-                    <div className="flex justify-between text-slate-800">
-                      <span>(D) 1120 Bank BCA Operasional</span>
-                      <span className="font-bold">Rp 2.000.000</span>
-                    </div>
-                    <div className="flex justify-between text-slate-600 pl-4">
-                      <span>(K) 7100 Pendapatan Bunga Giro</span>
-                      <span>Rp 2.150.000</span>
-                    </div>
-                    <div className="flex justify-between text-slate-600 pl-4">
-                      <span>(D) 6200 Beban Administrasi Bank</span>
-                      <span>Rp 150.000</span>
-                    </div>
-                  </div>
-                  <div className="text-[11px] text-slate-500 italic">
-                    Memposting jurnal ini akan menyelaraskan saldo sistem menjadi Rp {formatRupiah(currentBalance)} dan menutup selisih rekonsiliasi.
-                  </div>
-                </div>
-              </div>
-
               {/* Actions Footer */}
               <div className="pt-3 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 {onNavigateToBankTab && (
