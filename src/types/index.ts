@@ -639,6 +639,7 @@ export interface BankAccount {
   statementBalance: number;
   lastReconciledDate: string;
   unreconciledDifference: number;
+  reconciliationStatus?: 'OPEN' | 'RECONCILED';
 }
 
 // --- Audit Log Entity ---
