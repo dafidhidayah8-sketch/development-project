@@ -550,6 +550,12 @@ export interface ApprovalMatrixRule {
 }
 
 // --- Primary Transaction Entity ---
+export interface JournalLine {
+  accountCode: string;
+  debit: number;
+  credit: number;
+}
+
 export interface Transaction {
   id: string; // e.g. "TRX-2026-00012"
   idempotencyKey?: string;
@@ -602,6 +608,7 @@ export interface Transaction {
   // Dual Identity: Accounting mapping
   debitAccountCode: string;
   creditAccountCode: string;
+  journalLines?: JournalLine[];
   journalPosted: boolean;
   
   // Audit & Governance
