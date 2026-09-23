@@ -1,0 +1,6 @@
+{
+  "name": "Sistem Akuntansi & Kontrol Proyek Developer Perumahan",
+  "description": "Sistem manajemen proyek & akuntansi dua lapis: input sederhana untuk operator lapangan, kontrol detail WBS, Cost Code, Approval bertingkat, dan Executive Dashboard untuk Direksi.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
