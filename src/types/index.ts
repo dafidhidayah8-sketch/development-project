@@ -166,7 +166,7 @@ export interface ProjectMigrationData {
 // --- Real Sync Outbox Item ---
 export interface SyncOutboxItem {
   id: string;
-  entity: 'TRANSACTION' | 'PROJECT' | 'ACCOUNT' | 'BUDGET' | 'COMMITMENT' | 'CAPITAL' | 'AUDIT';
+  entity: 'TRANSACTION' | 'PROJECT' | 'ACCOUNT' | 'BUDGET' | 'COMMITMENT' | 'CAPITAL' | 'AUDIT' | 'PARTY' | 'WORK_ORDER' | 'EQUIPMENT' | 'INTERNAL_DEPARTMENT' | 'CUSTOMER_AR' | 'PO_CONTRACT';
   entityId: string;
   operation: 'CREATE' | 'UPDATE' | 'DELETE' | 'RECONCILE';
   payload: any;
