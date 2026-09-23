@@ -1279,6 +1279,7 @@ export function App() {
             equipmentAssets={appState.equipmentAssets}
             internalDepartments={appState.internalDepartments}
             projects={appState.projects}
+            transactions={currentTransactions}
             wbsNodes={currentWbsNodes}
             costCodes={currentCostCodes}
             activeRole={activeRole}
