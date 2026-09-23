@@ -353,7 +353,7 @@ export function createCapitalTransaction(
     paidDate: entry.date,
     paidAmount: entry.amount,
     outstandingAmount: 0,
-    debitAccountCode: '1120',
+    debitAccountCode: bankAccountCoaCode(entry.destinationAccountId),
     creditAccountCode: credit,
     journalPosted: true,
     operatorName: actor,
@@ -363,6 +363,13 @@ export function createCapitalTransaction(
     currentApprovalLevel: 1,
     approvalSteps: [{ stepNo: 1, roleRequired: actorRole, status: 'APPROVED', approverName: actor, approverRole: actorRole, actionDate: new Date().toISOString() }],
   };
+}
+
+function bankAccountCoaCode(accountId: string): string {
+  if (accountId === 'BNK-01' || accountId === 'BNK-05') return '1110';
+  if (accountId === 'BNK-03') return '1130';
+  if (accountId === 'BNK-04') return '1140';
+  return '1120';
 }
 
 function resolveCapitalPaymentMethod(accountId: string): Transaction['paymentMethod'] {
@@ -441,7 +448,7 @@ export function createCustomerPaymentTransaction(
     outstandingAmount: 0,
     invoiceNo: record.contractNo,
     receiptProofNo: schedule.id,
-    debitAccountCode: '1120',
+    debitAccountCode: bankAccountCoaCode(bankAccountId),
     creditAccountCode: record.psak72.handoverStatus === 'BAST_COMPLETED' ? '1210' : '2420',
     journalPosted: true,
     operatorName: actor,
@@ -546,7 +553,7 @@ export function createContractPaymentTransaction(
     paidAmount: safeAmount,
     outstandingAmount: 0,
     debitAccountCode: '2110',
-    creditAccountCode: bankAccountId === 'BNK-01' || bankAccountId === 'BNK-05' ? '1110' : bankAccountId === 'BNK-03' ? '1130' : bankAccountId === 'BNK-04' ? '1140' : '1120',
+    creditAccountCode: bankAccountCoaCode(bankAccountId),
     journalPosted: true,
     operatorName: actor,
     createdBy: actor,
