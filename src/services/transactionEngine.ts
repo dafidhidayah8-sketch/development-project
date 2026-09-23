@@ -164,7 +164,14 @@ function updatePartyExposure(
     if (p.id !== tx.partyId) return p;
     const isUnpaidExpense = tx.type === 'EXPENSE' && !tx.isPaid;
     const isCustomerIncome = tx.type === 'INCOME' && tx.category === 'PENJUALAN_UNIT';
-    const exposureDelta = isUnpaidExpense ? money(tx.outstandingAmount) : isCustomerIncome ? -money(tx.totalAmount) : 0;
+    const isVendorSettlement = tx.type === 'TRANSFER' && tx.debitAccountCode === '2110';
+    const exposureDelta = isUnpaidExpense
+      ? money(tx.outstandingAmount)
+      : isVendorSettlement
+        ? -money(tx.totalAmount)
+        : isCustomerIncome
+          ? -money(tx.totalAmount)
+          : 0;
     return {
       ...p,
       totalTransactions: money(p.totalTransactions) + 1,
@@ -184,7 +191,11 @@ function applyCashMovement(
   const account = resolveBankAccount(accounts, tx.bankAccountId, tx.paymentMethod);
   if (!account) return { accounts };
 
-  const delta = tx.type === 'EXPENSE' ? -money(tx.totalAmount) : tx.type === 'INCOME' ? money(tx.totalAmount) : 0;
+  const delta = tx.type === 'EXPENSE' || tx.type === 'TRANSFER'
+    ? -money(tx.totalAmount)
+    : tx.type === 'INCOME'
+      ? money(tx.totalAmount)
+      : 0;
   const updated = accounts.map(item =>
     item.id === account.id ? { ...item, currentBalance: addDelta(item.currentBalance, delta) } : item
   );
