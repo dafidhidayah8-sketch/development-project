@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Transaction, BankAccount, ChartOfAccount } from '../types';
+import { Transaction, BankAccount, ChartOfAccount, AgingItem } from '../types';
 import { formatRupiah, formatCompactRupiah, formatDateIndo } from '../utils/formatters';
 import { 
   BookOpen, 
@@ -18,13 +18,20 @@ interface AccountingAndBankViewProps {
   transactions: Transaction[];
   bankAccounts: BankAccount[];
   coaList: ChartOfAccount[];
+  agingItems?: AgingItem[];
+  onOpenBankReconciliation?: (accountId: string) => void;
 }
 
 export const AccountingAndBankView: React.FC<AccountingAndBankViewProps> = ({
   transactions,
   bankAccounts,
-  coaList
+  coaList,
+  agingItems = [],
+  onOpenBankReconciliation
 }) => {
+  const totalAP = agingItems.filter(i => i.type === 'AP').reduce((sum, i) => sum + i.outstandingBalance, 0);
+  const totalAR = agingItems.filter(i => i.type === 'AR').reduce((sum, i) => sum + i.outstandingBalance, 0);
+  const pettyCash = bankAccounts.find(b => b.id === 'BNK-05');
   const [activeSubTab, setActiveSubTab] = useState<'JOURNAL' | 'BANK_RECON' | 'AP_AR' | 'PETTY_CASH'>('JOURNAL');
 
   const getAccountName = (code: string) => {
@@ -203,24 +210,34 @@ export const AccountingAndBankView: React.FC<AccountingAndBankViewProps> = ({
             })}
           </div>
 
-          {/* Deep dive on Bank BCA difference (Case study from prompt: Rp 125 jt vs Rp 123 jt = Rp 2 jt selisih) */}
-          <div className="p-6 bg-amber-50/90 rounded-2xl border border-amber-200 space-y-3">
-            <div className="flex items-center gap-2 text-amber-900 font-bold text-sm">
-              <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
-              <span>Detail Penjelasan Selisih Rekonsiliasi Bank BCA (Rp 2.000.000)</span>
-            </div>
-            <p className="text-xs text-amber-900 leading-relaxed">
-              Berdasarkan prinsip akuntansi perumahan di poin 11 spesifikasi: <strong>Saldo sistem (Rp 125 Juta) vs Rekening Koran (Rp 123 Juta) = Selisih Rp 2 Juta</strong>.
-              Sistem menunjukkan bahwa terdapat cek/bilyet giro pembayaran vendor atau biaya administrasi bank &amp; potongan pajak bunga giro 
-              yang belum terposting di mutasi akhir pekan.
-            </p>
-            <div className="flex items-center gap-3 pt-2">
-              <button className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow-xs cursor-pointer">
-                Lakukan Penyesuaian Rekonsiliasi (Adjusting Entry)
-              </button>
-              <span className="text-xs text-amber-800 font-medium">Status: Menunggu verifikasi mutasi koran 23-09-2026</span>
-            </div>
-          </div>
+          {(() => {
+            const bca = bankAccounts.find(b => b.id === 'BNK-02');
+            const diff = bca?.unreconciledDifference || 0;
+            if (!bca || diff === 0) return null;
+            return (
+              <div className="p-6 bg-amber-50/90 rounded-2xl border border-amber-200 space-y-3">
+                <div className="flex items-center gap-2 text-amber-900 font-bold text-sm">
+                  <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+                  <span>Selisih Rekonsiliasi {bca.name}</span>
+                </div>
+                <p className="text-xs text-amber-900 leading-relaxed">
+                  Selisih berasal dari perbandingan saldo sistem dan rekening koran yang tersimpan pada master rekening.
+                  Nilai saat ini: <strong>{formatRupiah(diff)}</strong>.
+                </p>
+                <div className="flex items-center gap-3 pt-2">
+                  {onOpenBankReconciliation && (
+                    <button
+                      onClick={() => onOpenBankReconciliation(bca.id)}
+                      className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow-xs cursor-pointer"
+                    >
+                      Buka Rekonsiliasi
+                    </button>
+                  )}
+                  <span className="text-xs text-amber-800 font-medium">Menunggu verifikasi mutasi rekening.</span>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -234,7 +251,7 @@ export const AccountingAndBankView: React.FC<AccountingAndBankViewProps> = ({
                 <h3 className="text-base font-bold text-slate-900">Daftar Hutang Usaha (AP - Accounts Payable)</h3>
                 <span className="text-xs text-slate-500">Kewajiban kepada Supplier &amp; Kontraktor yang belum dibayar</span>
               </div>
-              <span className="text-lg font-extrabold text-rose-600">Rp 462.500.000</span>
+              <span className="text-lg font-extrabold text-rose-600">{formatCompactRupiah(totalAP)}</span>
             </div>
 
             <div className="space-y-3 text-xs">
@@ -280,7 +297,7 @@ export const AccountingAndBankView: React.FC<AccountingAndBankViewProps> = ({
                 <h3 className="text-base font-bold text-slate-900">Piutang Penjualan Unit (AR - Accounts Receivable)</h3>
                 <span className="text-xs text-slate-500">Jadwal penagihan DP &amp; akad kredit KPR konsumen</span>
               </div>
-              <span className="text-lg font-extrabold text-indigo-700">Rp 962.500.000</span>
+              <span className="text-lg font-extrabold text-indigo-700">{formatCompactRupiah(totalAR)}</span>
             </div>
 
             <div className="space-y-3 text-xs">
@@ -329,12 +346,12 @@ export const AccountingAndBankView: React.FC<AccountingAndBankViewProps> = ({
               <span className="text-xs font-bold text-slate-500 uppercase">Sistem Imprest Kas Kecil</span>
               <h3 className="text-lg font-bold text-slate-900">Kas Kecil Lapangan (Petty Cash Proyek)</h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Plafon Imprest: Rp 5.000.000 • Saldo Riil: Rp 4.300.000 • Terpakai: Rp 700.000
+                Saldo kas kecil bersumber dari rekening BNK-05 di master Kas &amp; Bank.
               </p>
             </div>
-            <button className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-xs cursor-pointer">
-              + Ajukan Pengisian Kembali (Reimburse Rp 700.000)
-            </button>
+                        <span className="text-xs font-semibold text-slate-500">
+              Saldo sistem: {formatRupiah(pettyCash?.currentBalance || 0)} • Selisih: {formatRupiah(pettyCash?.unreconciledDifference || 0)}
+            </span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
