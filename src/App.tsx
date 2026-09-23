@@ -223,6 +223,9 @@ export function App() {
       auditLogs: [audit, ...(appState?.auditLogs || [])],
       wbsNodes: appState?.wbsNodes || [],
       costCodes: appState?.costCodes || [],
+      workOrders: appState?.workOrders || [],
+      equipmentAssets: appState?.equipmentAssets || [],
+      internalDepartments: appState?.internalDepartments || [],
       syncQueue: enqueueSync([], 'PROJECT', newProject.id, 'CREATE', newProject),
       integrationConfig: appState?.integrationConfig || {
         google: { status: 'NOT_CONFIGURED' },
@@ -814,7 +817,7 @@ export function App() {
   // MAIN RUNNING APPLICATION
   // ---------------------------------------------------------------------------
   const pendingApprovalsCount = currentTransactions.filter(t => t.status === 'SUBMITTED' || t.status === 'VERIFIED').length;
-  const isSecondaryActive = ['aging', 'customer_ar', 'po_tracking', 'control_checks', 'notification_history'].includes(activeTab);
+  const isSecondaryActive = ['aging', 'customer_ar', 'po_tracking', 'mitra', 'control_checks', 'notification_history'].includes(activeTab);
 
   return (
     <div className="min-h-screen bg-slate-100/80 text-slate-800 flex flex-col font-sans">
