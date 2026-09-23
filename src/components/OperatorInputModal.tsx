@@ -41,8 +41,6 @@ export const OperatorInputModal: React.FC<OperatorInputModalProps> = ({
   bankAccounts,
   onSaveTransaction
 }) => {
-  if (!isOpen) return null;
-
   // Form State
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [type, setType] = useState<TransactionType>('EXPENSE');
@@ -196,6 +194,8 @@ export const OperatorInputModal: React.FC<OperatorInputModalProps> = ({
     onSaveTransaction(newTx);
     onClose();
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs animate-in fade-in duration-200">
