@@ -397,6 +397,102 @@ export function recalculateCustomerAR(
   };
 }
 
+export function createBASTRecognitionTransactions(
+  state: AppState,
+  record: AppState['customerARRecords'][number],
+  actor: string,
+  actorRole: UserRole
+): Transaction[] {
+  const projectId = record.projectId || state.activeProjectId || '';
+  const project = state.projects.find(p => p.id === projectId);
+  const paidBeforeBAST = money(record.totalPaid);
+  const outstandingAtBAST = Math.max(0, money(record.sellingPrice) - paidBeforeBAST);
+  const revenueLines = [
+    ...(paidBeforeBAST > 0 ? [{ accountCode: '2420', debit: paidBeforeBAST, credit: 0 }] : []),
+    ...(outstandingAtBAST > 0 ? [{ accountCode: '1210', debit: outstandingAtBAST, credit: 0 }] : []),
+    { accountCode: '4110', debit: 0, credit: money(record.sellingPrice) },
+  ];
+  const revenueTx: Transaction = {
+    id: `TRX-BAST-REV-${record.id}`,
+    idempotencyKey: `BAST-REV-${record.id}`,
+    date: new Date().toISOString().split('T')[0],
+    projectId,
+    projectName: project?.name || 'Project',
+    type: 'INCOME',
+    category: 'PENJUALAN_UNIT',
+    subcategory: `Pengakuan Pendapatan BAST ${record.unitNo}`,
+    description: `Pengakuan pendapatan atas penyerahan Unit ${record.unitNo} setelah BAST.`,
+    block: record.block,
+    unitId: record.unitId,
+    wbsCode: '09',
+    costCode: 'SAL-002',
+    costCodeName: 'Pengakuan Pendapatan Penjualan Unit',
+    partyId: record.id,
+    partyName: record.customerName,
+    partyRole: 'KONSUMEN',
+    subtotal: record.sellingPrice,
+    totalAmount: record.sellingPrice,
+    paymentMethod: 'BELUM_DIBAYAR_HUTANG',
+    isPaid: false,
+    paidAmount: 0,
+    outstandingAmount: outstandingAtBAST,
+    debitAccountCode: revenueLines[0].accountCode,
+    creditAccountCode: '4110',
+    journalLines: revenueLines,
+    journalPosted: true,
+    operatorName: actor,
+    createdBy: actor,
+    createdAt: new Date().toISOString(),
+    status: 'POSTED',
+    currentApprovalLevel: 1,
+    approvalSteps: [{ stepNo: 1, roleRequired: actorRole, status: 'APPROVED', approverName: actor, approverRole: actorRole, actionDate: new Date().toISOString() }],
+  };
+
+  const cogsAmount = money(record.psak72.cogsWIPTransfer);
+  if (cogsAmount <= 0) return [revenueTx];
+
+  const cogsTx: Transaction = {
+    id: `TRX-BAST-COGS-${record.id}`,
+    idempotencyKey: `BAST-COGS-${record.id}`,
+    date: revenueTx.date,
+    projectId,
+    projectName: project?.name || 'Project',
+    type: 'TRANSFER',
+    category: 'PENJUALAN_UNIT',
+    subcategory: `Transfer HPP Unit ${record.unitNo}`,
+    description: `Pemindahan biaya pengembangan dari WIP/KDPP ke HPP saat BAST.`,
+    block: record.block,
+    unitId: record.unitId,
+    wbsCode: '09',
+    costCode: 'SAL-003',
+    costCodeName: 'Transfer WIP ke HPP Penjualan Unit',
+    partyId: record.id,
+    partyName: record.customerName,
+    partyRole: 'KONSUMEN',
+    subtotal: cogsAmount,
+    totalAmount: cogsAmount,
+    paymentMethod: 'BELUM_DIBAYAR_HUTANG',
+    isPaid: false,
+    paidAmount: 0,
+    outstandingAmount: 0,
+    debitAccountCode: '5100',
+    creditAccountCode: '1320',
+    journalLines: [
+      { accountCode: '5100', debit: cogsAmount, credit: 0 },
+      { accountCode: '1320', debit: 0, credit: cogsAmount },
+    ],
+    journalPosted: true,
+    operatorName: actor,
+    createdBy: actor,
+    createdAt: new Date().toISOString(),
+    status: 'POSTED',
+    currentApprovalLevel: 1,
+    approvalSteps: [{ stepNo: 1, roleRequired: actorRole, status: 'APPROVED', approverName: actor, approverRole: actorRole, actionDate: new Date().toISOString() }],
+  };
+
+  return [revenueTx, cogsTx];
+}
+
 export function createCustomerPaymentTransaction(
   state: AppState,
   record: AppState['customerARRecords'][number],
