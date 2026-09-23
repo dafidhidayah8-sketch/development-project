@@ -122,7 +122,9 @@ export const BankReconciliationModal: React.FC<BankReconciliationModalProps> = (
                   <span className="text-base font-black text-rose-600 mt-1 block">
                     {formatRupiah(diff)}
                   </span>
-                  <span className="text-[10px] text-rose-500 font-bold uppercase">STATUS: OPEN</span>
+                  <span className={`text-[10px] font-bold uppercase ${diff === 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
+                    STATUS: {diff === 0 ? 'MATCH' : 'OPEN'}
+                  </span>
                 </div>
               </div>
 
@@ -149,14 +151,30 @@ export const BankReconciliationModal: React.FC<BankReconciliationModalProps> = (
                   </select>
                 </div>
 
-                {/* Proposed Adjusting Journal Entry */}
                 <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2 text-xs">
                   <div className="flex items-center justify-between font-bold text-slate-800">
-                    <span>Draft Jurnal Penyesuaian Otomatis:</span>
-                    <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">
-                      Balance 100%
+                    <span>Ringkasan Penyesuaian</span>
+                    <span className={`text-[10px] px-2 py-0.5 rounded ${
+                      diff === 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                    }`}>
+                      {diff === 0 ? 'MATCH' : 'REVIEW'}
                     </span>
                   </div>
+                  <div className="grid grid-cols-2 gap-2 text-[11px]">
+                    <div className="bg-white p-2.5 rounded-lg border border-slate-200">
+                      <span className="text-slate-500 block">Selisih</span>
+                      <strong className="text-slate-900">{formatRupiah(diff)}</strong>
+                    </div>
+                    <div className="bg-white p-2.5 rounded-lg border border-slate-200">
+                      <span className="text-slate-500 block">Target Saldo Buku</span>
+                      <strong className="text-slate-900">{formatRupiah(bankStatementBalance)}</strong>
+                    </div>
+                  </div>
+                  <div className="text-[11px] text-slate-500 italic">
+                    Sistem tidak membuat jurnal pendapatan/beban secara otomatis dari asumsi penyebab. Akun penyesuaian harus ditentukan berdasarkan bukti rekening koran dan root cause yang diverifikasi.
+                  </div>
+                </div>
+              </div>
                   <div className="font-mono text-[11px] space-y-1 bg-white p-2.5 rounded-lg border border-slate-200">
                     <div className="flex justify-between text-slate-800">
                       <span>(D) 1120 Bank BCA Operasional</span>
