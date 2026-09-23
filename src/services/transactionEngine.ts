@@ -66,7 +66,10 @@ export function validateTransaction(state: AppState, tx: Transaction): EngineVal
   if (!project) errors.push(`Project ${tx.projectId} tidak ditemukan.`);
 
   const party = state.parties.find(p => p.id === tx.partyId);
-  if (!party && tx.partyId) errors.push(`Pihak ${tx.partyId} belum terdaftar pada master pihak/rekanan.`);
+  const isCustomerPayment = tx.type === 'INCOME' && tx.category === 'PENJUALAN_UNIT';
+  if (!party && tx.partyId && !isCustomerPayment) {
+    errors.push(`Pihak ${tx.partyId} belum terdaftar pada master pihak/rekanan.`);
+  }
 
   if (!tx.wbsCode) errors.push('WBS wajib diisi.');
   if (!tx.costCode) errors.push('Cost Code wajib diisi.');
