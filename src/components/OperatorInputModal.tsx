@@ -4,7 +4,8 @@ import {
   TransactionType, 
   TransactionCategory, 
   PaymentMethod, 
-  Party, 
+  Party,
+  BankAccount, 
   CostCode, 
   Project,
   ApprovalStepRecord
@@ -27,6 +28,7 @@ interface OperatorInputModalProps {
   project: Project;
   parties: Party[];
   costCodes: CostCode[];
+  bankAccounts: BankAccount[];
   onSaveTransaction: (tx: Transaction) => void;
 }
 
@@ -36,6 +38,7 @@ export const OperatorInputModal: React.FC<OperatorInputModalProps> = ({
   project,
   parties,
   costCodes,
+  bankAccounts,
   onSaveTransaction
 }) => {
   if (!isOpen) return null;
@@ -56,7 +59,8 @@ export const OperatorInputModal: React.FC<OperatorInputModalProps> = ({
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('TRANSFER_BCA');
   const [invoiceNo, setInvoiceNo] = useState<string>('INV-' + Math.floor(1000 + Math.random() * 9000));
   const [receiptProofNo, setReceiptProofNo] = useState<string>('BK-' + Math.floor(100 + Math.random() * 900));
-  const [proofFileName, setProofFileName] = useState<string>('nota_lapangan_' + Date.now().toString().slice(-4) + '.pdf');
+  const [proofFileName, setProofFileName] = useState<string>('');
+  const [proofDataUrl, setProofDataUrl] = useState<string>('');
   const [isUploading, setIsUploading] = useState<boolean>(false);
 
   // Auto-deduce Cost Code & COA in background
@@ -84,6 +88,17 @@ export const OperatorInputModal: React.FC<OperatorInputModalProps> = ({
 
   const autoCostCode = getAutoCostCode();
   const selectedParty = parties.find(p => p.id === partyId) || parties[0];
+
+  const getBankAccountForPaymentMethod = (method: PaymentMethod): BankAccount | undefined => {
+    if (method === 'BELUM_DIBAYAR_HUTANG') return undefined;
+    if (method === 'TRANSFER_BCA') return bankAccounts.find(b => b.bankName === 'Bank BCA') || bankAccounts.find(b => b.id === 'BNK-02');
+    if (method === 'TRANSFER_MANDIRI') return bankAccounts.find(b => b.bankName === 'Bank Mandiri') || bankAccounts.find(b => b.id === 'BNK-03');
+    if (method === 'TRANSFER_BRI') return bankAccounts.find(b => b.bankName === 'Bank BRI') || bankAccounts.find(b => b.id === 'BNK-04');
+    if (method === 'PETTY_CASH') return bankAccounts.find(b => b.bankName === 'Imprest Fund') || bankAccounts.find(b => b.id === 'BNK-05');
+    return bankAccounts.find(b => b.bankName === 'Kas Tunai') || bankAccounts.find(b => b.id === 'BNK-01');
+  };
+
+  const selectedBankAccount = getBankAccountForPaymentMethod(paymentMethod);
 
   // Auto calculate nominal when qty or unit price change
   const handleQtyOrPriceChange = (newQty: number, newPrice: number) => {
@@ -157,14 +172,16 @@ export const OperatorInputModal: React.FC<OperatorInputModalProps> = ({
       subtotal: nominal,
       totalAmount: nominal,
       paymentMethod,
-      bankAccountName: paymentMethod === 'TRANSFER_BCA' ? 'Bank BCA Operasional' : paymentMethod === 'TRANSFER_MANDIRI' ? 'Bank Mandiri Proyek' : 'Kas Proyek',
+      bankAccountId: selectedBankAccount?.id,
+      bankAccountName: selectedBankAccount ? selectedBankAccount.name + ' (' + selectedBankAccount.accountNumber + ')' : undefined,
       isPaid: paymentMethod !== 'BELUM_DIBAYAR_HUTANG',
       paidDate: paymentMethod !== 'BELUM_DIBAYAR_HUTANG' ? date : undefined,
       paidAmount: paymentMethod !== 'BELUM_DIBAYAR_HUTANG' ? nominal : 0,
       outstandingAmount: paymentMethod === 'BELUM_DIBAYAR_HUTANG' ? nominal : 0,
       invoiceNo,
       receiptProofNo,
-      proofFileName,
+      proofFileName: proofFileName || undefined,
+      proofFileUrl: proofDataUrl || undefined,
       debitAccountCode: debitCode,
       creditAccountCode: creditCode,
       journalPosted: true,
@@ -443,20 +460,26 @@ export const OperatorInputModal: React.FC<OperatorInputModalProps> = ({
             </div>
           </div>
 
-          {/* Simulated File Upload */}
+          {/* Actual browser file attachment */}
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">
               10. Upload Bukti Fisik / Foto / PDF
             </label>
-            <div className="border-2 border-dashed border-slate-300 rounded-2xl p-4 text-center hover:border-emerald-500 transition-colors bg-slate-50/50">
+            <label htmlFor="operator-proof-file" className="border-2 border-dashed border-slate-300 rounded-2xl p-4 text-center hover:border-emerald-500 transition-colors bg-slate-50/50 cursor-pointer block">
+              <input id="operator-proof-file" type="file" accept="image/*,.pdf" className="hidden" onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                if (file.size > 2 * 1024 * 1024) { alert('Bukti terlalu besar. Maksimal 2 MB.'); e.currentTarget.value = ''; return; }
+                setIsUploading(true);
+                const reader = new FileReader();
+                reader.onload = () => { setProofFileName(file.name); setProofDataUrl(typeof reader.result === 'string' ? reader.result : ''); setIsUploading(false); };
+                reader.onerror = () => { setIsUploading(false); alert('Bukti gagal dibaca browser.'); };
+                reader.readAsDataURL(file);
+              }} />
               <UploadCloud className="w-7 h-7 text-slate-400 mx-auto mb-1" />
-              <div className="text-xs text-slate-700 font-semibold">
-                {proofFileName ? proofFileName : 'Klik untuk pilih foto struk / faktur'}
-              </div>
-              <div className="text-[11px] text-slate-400 mt-0.5">
-                Mendukung JPG, PNG, PDF (Maks. 10MB)
-              </div>
-            </div>
+              <div className="text-xs text-slate-700 font-semibold">{isUploading ? 'Membaca bukti...' : (proofFileName || 'Klik untuk pilih foto struk / faktur')}</div>
+              <div className="text-[11px] text-slate-400 mt-0.5">JPG, PNG, PDF • Maks. 2MB</div>
+            </label>
           </div>
 
           {/* BACKEND AUTO-PREVIEW (Demonstrating Dual Identity: Project + Accounting) */}
