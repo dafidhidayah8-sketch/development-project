@@ -177,7 +177,7 @@ function applyCashMovement(
   accounts: BankAccount[],
   tx: Transaction
 ): { accounts: BankAccount[]; account?: BankAccount } {
-  if (!tx.isPaid || tx.type === 'COMMITMENT' || tx.type === 'RECEIVING' || tx.type === 'TRANSFER') {
+  if (!tx.isPaid || tx.type === 'COMMITMENT' || tx.type === 'RECEIVING') {
     return { accounts };
   }
 
@@ -220,16 +220,17 @@ export function postTransaction(
   let bankAccounts = state.bankAccounts;
 
   const isExpense = tx.type === 'EXPENSE';
+  const isReceiving = tx.type === 'RECEIVING';
   const isCommitment = tx.type === 'COMMITMENT';
   const hasAllocation = !!tx.allocations?.length;
   const affectedProjectIds = new Set<string>();
   const affectedCostCodes = new Set<string>();
 
-  if (hasAllocation && (isExpense || isCommitment)) {
+  if (hasAllocation && (isExpense || isReceiving || isCommitment)) {
     const allocationResult = applyAllocationCost(
       { ...state, projects, costCodes, wbsNodes },
       tx.allocations!,
-      isExpense ? 'ACTUAL' : 'COMMITTED'
+      isExpense || isReceiving ? 'ACTUAL' : 'COMMITTED'
     );
     projects = allocationResult.projects;
     costCodes = allocationResult.costCodes;
@@ -238,18 +239,18 @@ export function postTransaction(
       affectedProjectIds.add(item.projectId);
       affectedCostCodes.add(item.costCode);
     });
-  } else if (isExpense || isCommitment) {
+  } else if (isExpense || isReceiving || isCommitment) {
     const amount = money(tx.totalAmount);
     projects = projects.map(project => {
       if (project.id !== tx.projectId) return project;
-      if (isExpense) {
+      if (isExpense || isReceiving) {
         const nextActual = addDelta(project.actualCost, amount);
         return { ...project, actualCost: nextActual, forecastEAC: Math.max(project.forecastEAC, nextActual) };
       }
       return { ...project, committedCost: addDelta(project.committedCost, amount) };
     });
 
-    if (isExpense) {
+    if (isExpense || isReceiving) {
       costCodes = updateCostCode(costCodes, tx.costCode, 'ACTUAL', amount);
       wbsNodes = updateWbs(wbsNodes, tx.wbsCode, amount);
     } else {
@@ -440,3 +441,108 @@ export function createCustomerPaymentTransaction(
     approvalSteps: [{ stepNo: 1, roleRequired: actorRole, status: 'APPROVED', approverName: actor, approverRole: actorRole, actionDate: new Date().toISOString() }],
   };
 }
+
+
+export function createContractOpnameTransaction(
+  state: AppState,
+  contract: AppState['poContracts'][number],
+  deltaAmount: number,
+  actor: string,
+  actorRole: UserRole
+): Transaction {
+  const projectId = contract.projectId || state.activeProjectId || '';
+  const project = state.projects.find(p => p.id === projectId);
+  const party = state.parties.find(p => p.id === contract.vendorPartyId);
+  return {
+    id: `TRX-OPNAME-${contract.id}-${Date.now()}`,
+    idempotencyKey: `OPNAME-${contract.id}-${contract.verifiedOpnameAmount + deltaAmount}`,
+    date: new Date().toISOString().split('T')[0],
+    projectId,
+    projectName: project?.name || 'Project',
+    type: 'RECEIVING',
+    category: 'KONTRAKTOR_MANDOR',
+    subcategory: `Opname ${contract.contractNo}`,
+    description: `Pengakuan pekerjaan terverifikasi ${contract.title} sebesar Rp ${money(deltaAmount).toLocaleString('id-ID')}`,
+    block: undefined,
+    unitId: undefined,
+    wbsCode: contract.wbsCode,
+    costCode: contract.costCode,
+    costCodeName: contract.costCodeName,
+    partyId: contract.vendorPartyId,
+    partyName: contract.vendorName,
+    partyRole: contract.vendorRole,
+    quantity: contract.verifiedOpnamePercent,
+    unitOfMeasure: '% opname',
+    unitPrice: contract.totalContractBudget / 100,
+    subtotal: deltaAmount,
+    totalAmount: deltaAmount,
+    paymentMethod: 'BELUM_DIBAYAR_HUTANG',
+    isPaid: false,
+    paidAmount: 0,
+    outstandingAmount: deltaAmount,
+    debitAccountCode: '1320',
+    creditAccountCode: '2110',
+    journalPosted: true,
+    operatorName: actor,
+    createdBy: actor,
+    createdAt: new Date().toISOString(),
+    status: 'POSTED',
+    currentApprovalLevel: 1,
+    approvalSteps: [{ stepNo: 1, roleRequired: actorRole, status: 'APPROVED', approverName: actor, approverRole: actorRole, actionDate: new Date().toISOString() }],
+    needsReviewReason: party ? undefined : 'Vendor SPK belum ditemukan di master pihak.',
+  };
+}
+
+export function createContractPaymentTransaction(
+  state: AppState,
+  contract: AppState['poContracts'][number],
+  amount: number,
+  bankAccountId: string,
+  actor: string,
+  actorRole: UserRole
+): Transaction {
+  const safeAmount = Math.min(money(amount), Math.max(0, money(contract.outstandingPayable)));
+  if (safeAmount <= 0) throw new Error('Nominal pembayaran SPK melebihi hutang terverifikasi.');
+
+  const account = state.bankAccounts.find(a => a.id === bankAccountId);
+  if (!account) throw new Error('Rekening pembayaran SPK tidak ditemukan.');
+
+  const projectId = contract.projectId || state.activeProjectId || '';
+  const project = state.projects.find(p => p.id === projectId);
+  return {
+    id: `TRX-AP-${contract.id}-${contract.paidAmount + safeAmount}`,
+    idempotencyKey: `AP-PAY-${contract.id}-${contract.paidAmount + safeAmount}`,
+    date: new Date().toISOString().split('T')[0],
+    projectId,
+    projectName: project?.name || 'Project',
+    type: 'TRANSFER',
+    category: 'KONTRAKTOR_MANDOR',
+    subcategory: `Pembayaran SPK ${contract.contractNo}`,
+    description: `Pelunasan hutang vendor untuk ${contract.title}`,
+    wbsCode: contract.wbsCode,
+    costCode: contract.costCode,
+    costCodeName: contract.costCodeName,
+    partyId: contract.vendorPartyId,
+    partyName: contract.vendorName,
+    partyRole: contract.vendorRole,
+    subtotal: safeAmount,
+    totalAmount: safeAmount,
+    paymentMethod: resolveCapitalPaymentMethod(bankAccountId),
+    bankAccountId,
+    bankAccountName: account.name,
+    isPaid: true,
+    paidDate: new Date().toISOString().split('T')[0],
+    paidAmount: safeAmount,
+    outstandingAmount: 0,
+    debitAccountCode: '2110',
+    creditAccountCode: bankAccountId === 'BNK-01' || bankAccountId === 'BNK-05' ? '1110' : bankAccountId === 'BNK-03' ? '1130' : bankAccountId === 'BNK-04' ? '1140' : '1120',
+    journalPosted: true,
+    operatorName: actor,
+    createdBy: actor,
+    createdAt: new Date().toISOString(),
+    status: 'PAID',
+    currentApprovalLevel: 1,
+    approvalSteps: [{ stepNo: 1, roleRequired: actorRole, status: 'APPROVED', approverName: actor, approverRole: actorRole, actionDate: new Date().toISOString() }],
+  };
+}
+
