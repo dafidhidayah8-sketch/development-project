@@ -582,83 +582,115 @@ export function App() {
 
   const handleRecordCustomerPayment = (customerRecordId: string, scheduleId: string, amount: number) => {
     updateAndPersist(prev => {
-      const updatedRecords = prev.customerARRecords.map(rec => {
-        if (rec.id === customerRecordId) {
-          const updatedSchedules = rec.schedules.map(s => {
-            if (s.id === scheduleId) {
-              return {
-                ...s,
-                status: 'PAID' as const,
-                paidDate: new Date().toISOString().split('T')[0],
-                paidAmount: amount
-              };
-            }
-            return s;
-          });
-          const newTotalPaid = rec.totalPaid + amount;
+      const record = prev.customerARRecords.find(r => r.id === customerRecordId);
+      if (!record) {
+        showToast('⚠️ Kontrak konsumen tidak ditemukan.');
+        return prev;
+      }
+      const bankAccountId = 'BNK-03';
+      try {
+        const tx = createCustomerPaymentTransaction(prev, record, scheduleId, amount, bankAccountId, `${activeRole} Kasir`, activeRole);
+        const posted = postTransaction(prev, tx, `${activeRole} Kasir`, activeRole);
+        if (!posted.validation.valid) {
+          showToast(`⚠️ Penerimaan ditolak engine: ${posted.validation.errors.join(' | ')}`);
+          return prev;
+        }
+        const schedule = record.schedules.find(s => s.id === scheduleId);
+        const paidAmount = Math.min(amount, schedule?.amount || amount);
+        const updatedRecords = posted.state.customerARRecords.map(rec => {
+          if (rec.id !== customerRecordId) return rec;
+          const schedules = rec.schedules.map(s => s.id === scheduleId ? {
+            ...s,
+            status: 'PAID' as const,
+            paidDate: tx.paidDate,
+            paidAmount: (s.paidAmount || 0) + paidAmount,
+            receiptTxId: tx.id
+          } : s);
+          const totalPaid = schedules.reduce((sum, item) => sum + (item.paidAmount || 0), 0);
+          const outstanding = Math.max(0, rec.sellingPrice - totalPaid);
           return {
             ...rec,
-            totalPaid: newTotalPaid,
-            totalOutstandingAR: Math.max(0, rec.sellingPrice - newTotalPaid),
-            schedules: updatedSchedules,
+            totalPaid,
+            totalOutstandingAR: outstanding,
+            kprOutstandingOrRemaining: Math.max(0, outstanding - rec.bookingFeeAmount),
+            schedules,
             psak72: {
               ...rec.psak72,
-              contractLiabilityBalance: rec.psak72.contractLiabilityBalance + amount
+              contractLiabilityBalance: rec.psak72.handoverStatus === 'BAST_COMPLETED'
+                ? Math.max(0, rec.psak72.contractLiabilityBalance)
+                : Math.max(0, totalPaid - rec.psak72.recognizedRevenue)
             }
           };
-        }
-        return rec;
-      });
-
-      const audit = createAuditRecord(
-        'CREATE',
-        customerRecordId,
-        `Penerimaan angsuran konsumen ${customerRecordId} Rp ${amount.toLocaleString('id-ID')}`,
-        `${activeRole} Kasir`,
-        activeRole
-      );
-
-      return {
-        ...prev,
-        customerARRecords: updatedRecords,
-        auditLogs: [audit, ...prev.auditLogs],
-      };
+        });
+        return {
+          ...posted.state,
+          customerARRecords: updatedRecords,
+          syncQueue: enqueueSync(posted.state.syncQueue, 'TRANSACTION', tx.id, 'UPDATE', { customerARRecordId, scheduleId, payment: paidAmount })
+        };
+      } catch (error: any) {
+        showToast(`⚠️ Penerimaan gagal: ${error?.message || 'Nominal tidak valid'}`);
+        return prev;
+      }
     });
-
-    showToast(`✓ Pembayaran angsuran konsumen berhasil dicatat!`);
+    showToast('✓ Penerimaan konsumen diproses oleh transaction engine.');
   };
 
   const handleUpdateOpname = (contractId: string, newProgress: number) => {
     updateAndPersist(prev => {
-      const updatedContracts = prev.poContracts.map(c => {
-        if (c.id === contractId) {
-          const verifiedAmount = (newProgress / 100) * c.totalContractBudget;
-          return {
-            ...c,
-            verifiedOpnamePercent: newProgress,
-            verifiedOpnameAmount: verifiedAmount,
-            invoicedAmount: Math.max(c.invoicedAmount, verifiedAmount),
-            outstandingPayable: Math.max(0, Math.max(c.invoicedAmount, verifiedAmount) - c.paidAmount),
-            status: newProgress >= 100 ? ('COMPLETED' as const) : ('ACTIVE' as const)
-          };
+      const contract = prev.poContracts.find(c => c.id === contractId);
+      if (!contract) return prev;
+      const bounded = Math.max(contract.verifiedOpnamePercent, Math.min(100, newProgress));
+      const oldAmount = contract.verifiedOpnameAmount;
+      const verifiedAmount = (bounded / 100) * contract.totalContractBudget;
+      const deltaAmount = Math.max(0, verifiedAmount - oldAmount);
+      let nextState = prev;
+      if (deltaAmount > 0) {
+        const tx = createContractOpnameTransaction(prev, contract, deltaAmount, `${activeRole} Site QS`, activeRole);
+        const posted = postTransaction(prev, tx, `${activeRole} Site QS`, activeRole);
+        if (!posted.validation.valid) {
+          showToast(`⚠️ Opname ditolak engine: ${posted.validation.errors.join(' | ')}`);
+          return prev;
         }
-        return c;
+        nextState = posted.state;
+      }
+
+      const updatedContracts = nextState.poContracts.map(c => {
+        if (c.id !== contractId) return c;
+        const newInvoiced = Math.max(c.invoicedAmount, verifiedAmount);
+        return {
+          ...c,
+          verifiedOpnamePercent: bounded,
+          verifiedOpnameAmount: verifiedAmount,
+          invoicedAmount: newInvoiced,
+          outstandingPayable: Math.max(0, newInvoiced - c.paidAmount),
+          status: bounded >= 100 ? ('COMPLETED' as const) : ('ACTIVE' as const)
+        };
       });
 
       return {
-        ...prev,
+        ...nextState,
         poContracts: updatedContracts,
       };
     });
-
-    showToast(`Opname fisik SPK ${contractId} diperbarui.`);
+    showToast(`Opname fisik SPK ${contractId} terhubung ke WBS, cost code, biaya proyek, AP dan audit.`);
   };
 
   const handlePayContractTermin = (contractId: string, amount: number) => {
     updateAndPersist(prev => {
-      const updatedContracts = prev.poContracts.map(c => {
-        if (c.id === contractId) {
-          const newPaid = c.paidAmount + amount;
+      const contract = prev.poContracts.find(c => c.id === contractId);
+      if (!contract) return prev;
+      try {
+        const bankAccountId = 'BNK-02';
+        const tx = createContractPaymentTransaction(prev, contract, amount, bankAccountId, `${activeRole} Finance`, activeRole);
+        const posted = postTransaction(prev, tx, `${activeRole} Finance`, activeRole);
+        if (!posted.validation.valid) {
+          showToast(`⚠️ Pembayaran SPK ditolak engine: ${posted.validation.errors.join(' | ')}`);
+          return prev;
+        }
+        const paid = tx.totalAmount;
+        const updatedContracts = posted.state.poContracts.map(c => {
+          if (c.id !== contractId) return c;
+          const newPaid = c.paidAmount + paid;
           return {
             ...c,
             paidAmount: newPaid,
@@ -666,17 +698,14 @@ export function App() {
             outstandingPayable: Math.max(0, c.invoicedAmount - newPaid),
             status: newPaid >= c.totalContractBudget ? ('COMPLETED' as const) : c.status
           };
-        }
-        return c;
-      });
-
-      return {
-        ...prev,
-        poContracts: updatedContracts,
-      };
+        });
+        return { ...posted.state, poContracts: updatedContracts };
+      } catch (error: any) {
+        showToast(`⚠️ Pembayaran SPK gagal: ${error?.message || 'Nominal tidak valid'}`);
+        return prev;
+      }
     });
-
-    showToast(`Pembayaran Rp ${amount.toLocaleString('id-ID')} untuk SPK ${contractId} berhasil diproses.`);
+    showToast(`Pembayaran SPK ${contractId} diproses melalui settlement engine.`);
   };
 
   // ---------------------------------------------------------------------------
