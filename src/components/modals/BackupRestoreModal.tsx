@@ -86,6 +86,9 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
       auditLogs: p.auditLogs || [],
       wbsNodes: p.wbsNodes || [],
       costCodes: p.costCodes || [],
+      workOrders: p.workOrders || appState.workOrders || [],
+      equipmentAssets: p.equipmentAssets || appState.equipmentAssets || [],
+      internalDepartments: p.internalDepartments || appState.internalDepartments || [],
       syncQueue: p.syncQueue || [],
       integrationConfig: p.integrationConfig || appState.integrationConfig,
     };
