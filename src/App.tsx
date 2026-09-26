@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Project, 
   Transaction, 
@@ -43,6 +43,7 @@ import {
   recalculateCustomerAR,
 } from './services/transactionEngine';
 import { exportTransactionsToCSV } from './services/exportService';
+import { connectFirebase, getFirebaseConfig, loadCloudSnapshot, saveCloudSnapshot, testFirebaseConnection } from './services/firebaseService';
 
 // UI Views & Modals
 import { FirstRunScreen } from './components/onboarding/FirstRunScreen';
@@ -120,6 +121,115 @@ export function App() {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 4000);
   };
+
+  const firebaseSyncInFlight = useRef(false);
+  const firebaseHydrated = useRef(false);
+
+  // Firebase cloud restore on a fresh browser, then automatic cloud synchronization.
+  useEffect(() => {
+    let cancelled = false;
+
+    const hydrateOrConnect = async () => {
+      if (!getFirebaseConfig()) return;
+
+      try {
+        const connection = await connectFirebase();
+        if (cancelled) return;
+
+        if (!appState) {
+          const cloudState = await loadCloudSnapshot();
+          if (cloudState && !cancelled) {
+            setAppState(cloudState);
+            saveAppState(cloudState);
+            firebaseHydrated.current = true;
+            showToast('☁️ Data project dipulihkan dari Firebase.');
+            return;
+          }
+        }
+
+        firebaseHydrated.current = true;
+        setAppState(prev => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            integrationConfig: {
+              ...prev.integrationConfig,
+              google: {
+                ...prev.integrationConfig.google,
+                status: 'CONNECTED',
+                firebaseProject: connection.config.projectId,
+                lastSync: prev.integrationConfig.google.lastSync,
+              },
+            },
+          };
+        });
+      } catch {
+        // Firebase is optional until configured; local mode remains fully usable.
+      }
+    };
+
+    void hydrateOrConnect();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!appState || !firebaseHydrated.current || !getFirebaseConfig()) return;
+
+    const syncToFirebase = async () => {
+      if (firebaseSyncInFlight.current) return;
+      firebaseSyncInFlight.current = true;
+      try {
+        await saveCloudSnapshot(appState);
+        setAppState(prev => {
+          if (!prev) return prev;
+          const now = new Date().toISOString();
+          const queue = prev.syncQueue.map(item =>
+            item.status === 'PENDING' || item.status === 'FAILED'
+              ? { ...item, status: 'SYNCED' as const, lastError: undefined }
+              : item
+          );
+          const next = {
+            ...prev,
+            syncQueue: queue,
+            integrationConfig: {
+              ...prev.integrationConfig,
+              google: {
+                ...prev.integrationConfig.google,
+                status: 'CONNECTED' as const,
+                firebaseProject: getFirebaseConfig()?.projectId,
+                lastSync: now,
+              },
+            },
+          };
+          saveAppState(next);
+          return next;
+        });
+      } catch {
+        setAppState(prev => {
+          if (!prev) return prev;
+          const queue = prev.syncQueue.map(item =>
+            item.status === 'PENDING'
+              ? { ...item, status: 'FAILED' as const, retryCount: item.retryCount + 1, lastError: 'Firebase belum dapat menerima data. Data tetap tersimpan lokal.' }
+              : item
+          );
+          const next = {
+            ...prev,
+            syncQueue: queue,
+            integrationConfig: {
+              ...prev.integrationConfig,
+              google: { ...prev.integrationConfig.google, status: 'ERROR' as const },
+            },
+          };
+          saveAppState(next);
+          return next;
+        });
+      } finally {
+        firebaseSyncInFlight.current = false;
+      }
+    };
+
+    void syncToFirebase();
+  }, [appState]);
 
   // Synchronize state changes to LocalStorage
   const updateAndPersist = (updater: (prev: AppState) => AppState) => {
@@ -509,17 +619,47 @@ export function App() {
     setIsSyncing(true);
     showToast('Sedang memproses antrean sinkronisasi...');
     
-    const result = await processSyncQueue(appState.syncQueue);
-    updateAndPersist(prev => ({
-      ...prev,
-      syncQueue: result.updatedQueue,
-    }));
-    
-    setIsSyncing(false);
-    if (result.success) {
-      showToast(`✓ Sinkronisasi tuntas! ${result.syncedCount} item berhasil diselaraskan.`);
-    } else {
-      showToast(`⚠️ Sinkronisasi selesai: ${result.syncedCount} berhasil, ${result.failedCount} gagal.`);
+    try {
+      if (!getFirebaseConfig()) {
+        throw new Error('Firebase belum dikonfigurasi.');
+      }
+      await saveCloudSnapshot(appState);
+      const now = new Date().toISOString();
+      const syncedCount = appState.syncQueue.filter(item => item.status === 'PENDING' || item.status === 'FAILED').length;
+      updateAndPersist(prev => ({
+        ...prev,
+        syncQueue: prev.syncQueue.map(item =>
+          item.status === 'PENDING' || item.status === 'FAILED'
+            ? { ...item, status: 'SYNCED' as const, lastError: undefined }
+            : item
+        ),
+        integrationConfig: {
+          ...prev.integrationConfig,
+          google: {
+            ...prev.integrationConfig.google,
+            status: 'CONNECTED',
+            firebaseProject: getFirebaseConfig()?.projectId,
+            lastSync: now,
+          },
+        },
+      }));
+      showToast(`✓ Firebase sync berhasil. ${syncedCount} item antrean terselaraskan.`);
+    } catch (error: any) {
+      updateAndPersist(prev => ({
+        ...prev,
+        syncQueue: prev.syncQueue.map(item =>
+          item.status === 'PENDING'
+            ? { ...item, status: 'FAILED' as const, retryCount: item.retryCount + 1, lastError: error?.message || 'Firebase sync gagal.' }
+            : item
+        ),
+        integrationConfig: {
+          ...prev.integrationConfig,
+          google: { ...prev.integrationConfig.google, status: 'ERROR' as const },
+        },
+      }));
+      showToast(`⚠️ Firebase sync gagal: ${error?.message || 'Periksa konfigurasi Firebase.'}`);
+    } finally {
+      setIsSyncing(false);
     }
   };
 
