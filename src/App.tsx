@@ -33,6 +33,15 @@ import {
 } from './services/storageService';
 import { createAuditRecord } from './services/auditService';
 import { enqueueSync, processSyncQueue } from './services/syncService';
+import {
+  createCapitalTransaction,
+  createBASTRecognitionTransactions,
+  createCustomerPaymentTransaction,
+  createContractOpnameTransaction,
+  createContractPaymentTransaction,
+  postTransaction,
+  recalculateCustomerAR,
+} from './services/transactionEngine';
 import { exportTransactionsToCSV } from './services/exportService';
 
 // UI Views & Modals
@@ -55,6 +64,7 @@ import { ProjectSwitchModal } from './components/modals/ProjectSwitchModal';
 import { BackupRestoreModal } from './components/modals/BackupRestoreModal';
 import { IntegrationCenterModal } from './components/modals/IntegrationCenterModal';
 import { InitialCapitalModal } from './components/modals/InitialCapitalModal';
+import { MitraAndInternalServicesView } from './components/MitraAndInternalServicesView';
 
 import { 
   Building2, 
@@ -87,7 +97,7 @@ export function App() {
 
   // UI Navigation & Active Persona
   const [activeTab, setActiveTab] = useState<
-    'dashboard' | 'aging' | 'customer_ar' | 'po_tracking' | 'wbs_cost' | 'approvals' | 'accounting_bank' | 'control_checks' | 'notification_history'
+    'dashboard' | 'aging' | 'customer_ar' | 'po_tracking' | 'wbs_cost' | 'approvals' | 'accounting_bank' | 'control_checks' | 'notification_history' | 'mitra'
   >('dashboard');
   const [activeRole, setActiveRole] = useState<UserRole>('DIREKSI');
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState<boolean>(false);
