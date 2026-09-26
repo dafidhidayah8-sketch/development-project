@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { IntegrationConfig, Transaction } from '../../types';
 import { checkIntegrationsStatus, generateWhatsAppManualLink } from '../../services/integrationService';
+import { getFirebaseConfig, testFirebaseConnection } from '../../services/firebaseService';
 
 interface IntegrationCenterModalProps {
   isOpen: boolean;
@@ -39,22 +40,37 @@ export const IntegrationCenterModal: React.FC<IntegrationCenterModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleTestConnections = () => {
+  const handleTestConnections = async () => {
     setIsTesting(true);
     setTestResult(null);
 
-    setTimeout(() => {
-      const refreshed = checkIntegrationsStatus(currentConfig);
-      setCurrentConfig(refreshed);
-      setIsTesting(false);
-      
-      const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
-      if (isOnline) {
-        setTestResult('Koneksi browser internet AKTIF. Tidak ada API Key eksternal tersimpan di frontend (Aman).');
-      } else {
-        setTestResult('Browser dalam kondisi Offline.');
+    try {
+      const firebaseConfig = getFirebaseConfig();
+      if (!firebaseConfig) {
+        throw new Error('Konfigurasi Firebase belum lengkap. Isi VITE_FIREBASE_* pada environment aplikasi.');
       }
-    }, 500);
+
+      const result = await testFirebaseConnection();
+      setCurrentConfig({
+        ...currentConfig,
+        google: {
+          ...currentConfig.google,
+          status: 'CONNECTED',
+          firebaseProject: result.projectId,
+          lastSync: new Date().toISOString(),
+        },
+      });
+      setTestResult(`Firebase terhubung nyata ke project ${result.projectId}. UID sesi: ${result.uid.substring(0, 8)}…`);
+    } catch (error: any) {
+      const refreshed = checkIntegrationsStatus(currentConfig);
+      setCurrentConfig({
+        ...refreshed,
+        google: { ...refreshed.google, status: 'ERROR' },
+      });
+      setTestResult(`Firebase belum terhubung: ${error?.message || 'Periksa konfigurasi.'}`);
+    } finally {
+      setIsTesting(false);
+    }
   };
 
   const handleGenerateWaLink = () => {
@@ -122,10 +138,10 @@ export const IntegrationCenterModal: React.FC<IntegrationCenterModalProps> = ({
                   <span>Google Cloud / Firebase</span>
                 </div>
                 <p className="text-[11px] text-slate-400">
-                  Digunakan untuk sinkronisasi cloud backend, Google Drive backup, dan export Sheets.
+                  Digunakan untuk sinkronisasi cloud backend Firebase. Google Drive/Sheets tetap integrasi terpisah dan tidak dianggap aktif otomatis.
                 </p>
                 <div className="text-[10px] text-slate-400 pt-1">
-                  Kredensial disimpan via server-side environment (Client-safe).
+                  Konfigurasi Firebase Web boleh berada di bundle; akses data tetap dilindungi Authentication + Firestore Security Rules.
                 </div>
               </div>
               <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0 ${
