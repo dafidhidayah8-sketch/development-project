@@ -35,22 +35,22 @@ export const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({
 
   // STEP 1: Project Profile
   const [projectName, setProjectName] = useState<string>('');
-  const [projectCode, setProjectCode] = useState<string>('PRJ-001');
+  const [projectCode, setProjectCode] = useState<string>('');
   const [developerCompany, setDeveloperCompany] = useState<string>('');
   const [location, setLocation] = useState<string>('');
   const [address, setAddress] = useState<string>('');
-  const [totalLandArea, setTotalLandArea] = useState<number>(10000);
-  const [targetUnits, setTargetUnits] = useState<number>(50);
+  const [totalLandArea, setTotalLandArea] = useState<number>(0);
+  const [targetUnits, setTargetUnits] = useState<number>(0);
   const [startDate, setStartDate] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [targetEndDate, setTargetEndDate] = useState<string>('2027-12-31');
+  const [targetEndDate, setTargetEndDate] = useState<string>('');
 
   // STEP 2: Initial Capital / Sumber Dana
   const [capitalDate, setCapitalDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [capitalSourceName, setCapitalSourceName] = useState<string>('');
   const [capitalSourceType, setCapitalSourceType] = useState<InitialCapitalEntry['sourceType']>('MODAL_PEMILIK');
-  const [capitalAmount, setCapitalAmount] = useState<number>(500000000); // Rp 500 Jt
-  const [capitalRefNo, setCapitalRefNo] = useState<string>('MODAL-AWAL-01');
-  const [capitalNotes, setCapitalNotes] = useState<string>('Penyetoran modal disetor awal pembangunan proyek');
+  const [capitalAmount, setCapitalAmount] = useState<number>(0);
+  const [capitalRefNo, setCapitalRefNo] = useState<string>('');
+  const [capitalNotes, setCapitalNotes] = useState<string>('');
 
   // STEP 3: Opening Cash/Bank Accounts
   const [accounts, setAccounts] = useState<Array<{
@@ -81,11 +81,8 @@ export const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({
   const [newAccType, setNewAccType] = useState<'BANK' | 'KAS' | 'PETTY_CASH'>('BANK');
 
   // STEP 4: Blocks & Initial Budget Allocation
-  const [budgetRAB, setBudgetRAB] = useState<number>(5000000000); // e.g. Rp 5 Miliar
-  const [blocks, setBlocks] = useState<ProjectBlock[]>([
-    { id: 'BLK-A', code: 'A', name: 'Blok A', totalUnits: 25, description: 'Cluster Utama' },
-    { id: 'BLK-B', code: 'B', name: 'Blok B', totalUnits: 25, description: 'Cluster Sayap Timur' }
-  ]);
+  const [budgetRAB, setBudgetRAB] = useState<number>(0);
+  const [blocks, setBlocks] = useState<ProjectBlock[]>([]);
 
   if (!isOpen) return null;
 
@@ -136,7 +133,7 @@ export const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({
       setErrorMsg('Nama rekening kas/bank wajib diisi.');
       return;
     }
-    const newId = `BNK-${Date.now().toString().slice(-4)}`;
+    const newId = `BNK-${Date.now().toString().slice(-8)}`;
     setAccounts(prev => [
       ...prev,
       {
@@ -176,6 +173,7 @@ export const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({
       statementBalance: a.openingBalance,
       lastReconciledDate: startDate,
       unreconciledDifference: 0,
+      projectId,
     }));
 
     const finalProject: Project = {
@@ -200,6 +198,10 @@ export const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({
       units: [],
     };
 
+    if (!targetEndDate) {
+      setErrorMsg('Target tanggal selesai project wajib diisi.');
+      return;
+    }
     const initialCapital: InitialCapitalEntry = {
       id: `CAP-${Date.now().toString().slice(-4)}`,
       projectId,
