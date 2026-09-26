@@ -15,17 +15,11 @@ import {
 interface ControlChecksViewProps {
   controlChecks: ControlCheckItem[];
   auditLogs: AuditLog[];
-  onReclassifyLegacy50M: () => void;
-  onVerifyPaDidiContract: () => void;
-  onReconcileBankBCA: () => void;
 }
 
 export const ControlChecksView: React.FC<ControlChecksViewProps> = ({
   controlChecks,
   auditLogs,
-  onReclassifyLegacy50M,
-  onVerifyPaDidiContract,
-  onReconcileBankBCA
 }) => {
   const [activeTab, setActiveTab] = useState<'CHECKS' | 'AUDIT_LOGS'>('CHECKS');
 
@@ -103,34 +97,6 @@ export const ControlChecksView: React.FC<ControlChecksViewProps> = ({
                   <div className="text-xs font-medium text-indigo-900 bg-indigo-50/70 p-2.5 rounded-xl border border-indigo-100 mt-2">
                     <strong>Rekomendasi Manajemen: </strong>{item.actionRequired}
                   </div>
-                </div>
-
-                {/* Simulated Quick Action button based on case study */}
-                <div className="shrink-0 flex flex-col sm:flex-row items-end sm:items-center gap-2">
-                  {item.code === 'C-001' && (
-                    <button
-                      onClick={onReclassifyLegacy50M}
-                      className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
-                    >
-                      Urai &amp; Alokasikan Rp 50 Jt
-                    </button>
-                  )}
-                  {item.code === 'C-002' && (
-                    <button
-                      onClick={onVerifyPaDidiContract}
-                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
-                    >
-                      Verifikasi SPK Pa Didi
-                    </button>
-                  )}
-                  {item.code === 'C-003' && (
-                    <button
-                      onClick={onReconcileBankBCA}
-                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
-                    >
-                      Rekonsiliasi Selisih Rp 2 Jt
-                    </button>
-                  )}
                 </div>
               </div>
             );
