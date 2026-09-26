@@ -1351,16 +1351,6 @@ export function App() {
           <ControlChecksView
             controlChecks={INITIAL_CONTROL_CHECKS}
             auditLogs={currentAuditLogs}
-            onReclassifyLegacy50M={() => {
-              handleResolveException('TRX-2026-0003', 'BLD-002', 'MATERIAL', 'Reklasifikasi resmi via Diagnostic C-001');
-            }}
-            onVerifyPaDidiContract={() => {
-              showToast('Kontrak & KTP Pa Didi terverifikasi.');
-            }}
-            onReconcileBankBCA={() => {
-              const bca = appState.bankAccounts.find(b => b.id === 'BNK-02');
-              if (bca) handlePostBankReconciliation(bca.id, bca.statementBalance, 'Verifikasi saldo terhadap rekening koran tersimpan');
-            }}
           />
         )}
       </main>
