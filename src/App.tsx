@@ -124,6 +124,7 @@ export function App() {
 
   const firebaseSyncInFlight = useRef(false);
   const firebaseHydrated = useRef(false);
+  const lastFirebaseSignature = useRef<string | null>(null);
 
   // Firebase cloud restore on a fresh browser, then automatic cloud synchronization.
   useEffect(() => {
@@ -177,9 +178,29 @@ export function App() {
 
     const syncToFirebase = async () => {
       if (firebaseSyncInFlight.current) return;
+      const signature = JSON.stringify({
+        activeProjectId: appState.activeProjectId,
+        projects: appState.projects,
+        bankAccounts: appState.bankAccounts,
+        capitalEntries: appState.capitalEntries,
+        transactions: appState.transactions,
+        parties: appState.parties,
+        agingItems: appState.agingItems,
+        customerARRecords: appState.customerARRecords,
+        poContracts: appState.poContracts,
+        alerts: appState.alerts,
+        auditLogs: appState.auditLogs,
+        wbsNodes: appState.wbsNodes,
+        costCodes: appState.costCodes,
+        workOrders: appState.workOrders,
+        equipmentAssets: appState.equipmentAssets,
+        internalDepartments: appState.internalDepartments,
+      });
+      if (lastFirebaseSignature.current === signature) return;
       firebaseSyncInFlight.current = true;
       try {
         await saveCloudSnapshot(appState);
+        lastFirebaseSignature.current = signature;
         setAppState(prev => {
           if (!prev) return prev;
           const now = new Date().toISOString();
