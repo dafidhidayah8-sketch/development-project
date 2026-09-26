@@ -46,14 +46,14 @@ export function buildTrialBalance(
   return [...map.entries()]
     .map(([accountCode, totals]) => {
       const coa = coaList.find(item => item.code === accountCode);
-      const balance = coa?.normalBalance === 'CREDIT'
+      const balance = coa?.normalBalance === 'KREDIT'
         ? totals.credit - totals.debit
         : totals.debit - totals.credit;
 
       return {
         accountCode,
         accountName: coa?.name || 'Akun belum ada di COA',
-        category: coa?.category || 'UNKNOWN',
+        category: (coa?.category || 'UNKNOWN') as LedgerBalance['category'],
         debit: Math.round(totals.debit * 100) / 100,
         credit: Math.round(totals.credit * 100) / 100,
         balance: Math.round(balance * 100) / 100,
