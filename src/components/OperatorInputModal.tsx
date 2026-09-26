@@ -163,7 +163,7 @@ export const OperatorInputModal: React.FC<OperatorInputModalProps> = ({
       costCodeName: autoCostCode.name,
       partyId: selectedParty.id,
       partyName: selectedParty.name,
-      partyRole: selectedParty.role,
+      partyRole: selectedParty.role ?? selectedParty.roles?.[0] ?? 'UNVERIFIED',
       quantity,
       unitOfMeasure,
       unitPrice,
