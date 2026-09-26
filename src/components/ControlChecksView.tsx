@@ -30,15 +30,14 @@ export const ControlChecksView: React.FC<ControlChecksViewProps> = ({
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-              SISTEM KONTROL INTERNAL &amp; REKONSILIASI DATA HISTORIS
+              SISTEM KONTROL INTERNAL &amp; REKONSILIASI PROJECT AKTIF
             </span>
             <h2 className="text-xl font-bold text-slate-900 mt-1 flex items-center gap-2">
               <ShieldAlert className="w-6 h-6 text-amber-600" />
               Project Control Checks, Ambiguity &amp; Audit Trail
             </h2>
             <p className="text-xs text-slate-600 mt-1 max-w-3xl leading-relaxed">
-              Mendeteksi transaksi belum terurai (seperti catatan lama Rp 50 Jt, Rp 243 Jt Biaya PT, selisih bank Rp 2 Jt, 
-              dan mandor PA DIDI) agar tidak terjadi double counting atau salah pembebanan laba rugi.
+              Mendeteksi kondisi aktual project aktif seperti klasifikasi biaya yang belum lengkap, pembayaran tanpa rekening sumber, selisih bank, over-budget, dan duplikasi transaksi agar kontrol biaya tetap dapat ditelusuri.
             </p>
           </div>
 
@@ -108,7 +107,7 @@ export const ControlChecksView: React.FC<ControlChecksViewProps> = ({
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
             <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-              Jejak Audit Sistem (Immutable Audit Log)
+              Jejak Audit Sistem
             </span>
             <span className="text-xs text-slate-500">Mencatat Siapa, Apa, Kapan, Nilai, dan Keputusan</span>
           </div>
