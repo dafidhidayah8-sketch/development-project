@@ -83,10 +83,6 @@ export async function connectFirebase(): Promise<FirebaseConnection> {
   }
 }
 
-function snapshotPath(uid: string) {
-  return doc((globalThis as any).__DEV_FIREBASE_DB as Firestore, 'users', uid, 'snapshots', 'current');
-}
-
 export async function saveCloudSnapshot(state: AppState): Promise<void> {
   const connection = await connectFirebase();
   const { syncQueue: _syncQueue, integrationConfig: _integrationConfig, ...cloudState } = state;
