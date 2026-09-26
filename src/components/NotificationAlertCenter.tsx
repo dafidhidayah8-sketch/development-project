@@ -18,7 +18,6 @@ interface NotificationAlertCenterProps {
   alerts: NotificationAlert[];
   currentRole: UserRole;
   onSelectAlert: (alert: NotificationAlert) => void;
-  onSimulateNewAlert: () => void;
   onMarkAllAsRead: () => void;
   onViewAllHistory?: () => void;
 }
@@ -27,7 +26,6 @@ export const NotificationAlertCenter: React.FC<NotificationAlertCenterProps> = (
   alerts,
   currentRole,
   onSelectAlert,
-  onSimulateNewAlert,
   onMarkAllAsRead,
   onViewAllHistory
 }) => {
@@ -90,22 +88,6 @@ export const NotificationAlertCenter: React.FC<NotificationAlertCenterProps> = (
                 <X className="w-4 h-4" />
               </button>
             </div>
-          </div>
-
-          {/* Quick Simulation Banner Button */}
-          <div className="p-2.5 bg-indigo-50 border-b border-indigo-100 flex items-center justify-between">
-            <span className="text-[11px] font-medium text-indigo-900">
-              Uji Simulasi Approval:
-            </span>
-            <button
-              onClick={() => {
-                onSimulateNewAlert();
-              }}
-              className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold rounded-lg shadow-xs transition-colors cursor-pointer"
-            >
-              <Send className="w-3 h-3" />
-              + Transaksi Baru PM/Direksi
-            </button>
           </div>
 
           {/* Role Filter Tabs */}
