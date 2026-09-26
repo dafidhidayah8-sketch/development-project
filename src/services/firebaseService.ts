@@ -126,7 +126,7 @@ export async function loadCloudSnapshot(): Promise<AppState | null> {
       cloudflare: { status: 'NOT_CONFIGURED' },
       whatsapp: { manualModeAvailable: true, apiStatus: 'NOT_CONFIGURED' },
     },
-  } as AppState;
+  } as unknown as AppState;
 }
 
 export async function testFirebaseConnection(): Promise<{ projectId: string; uid: string }> {
