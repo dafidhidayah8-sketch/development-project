@@ -126,7 +126,9 @@ export function App() {
 
   // Filter transactions, accounts, and aging for active project
   const currentTransactions = (appState?.transactions || []).filter(t => !t.projectId || !activeProject || t.projectId === activeProject.id);
-  const currentBankAccounts = appState?.bankAccounts || [];
+  const currentBankAccounts = (appState?.bankAccounts || []).filter(account =>
+    !account.projectId ? (appState?.projects.length === 1) : account.projectId === activeProject?.id
+  );
   const currentAgingItems = (appState?.agingItems || []).filter(i => !i.projectId || !activeProject || i.projectId === activeProject.id);
   const currentCustomerAR = (appState?.customerARRecords || []).filter(r => !r.projectId || !activeProject || r.projectId === activeProject.id);
   const currentPoContracts = (appState?.poContracts || []).filter(c => !c.projectId || !activeProject || c.projectId === activeProject.id);
@@ -148,7 +150,10 @@ export function App() {
     const baseState: AppState = {
       activeProjectId: newProject.id,
       projects: [...(appState?.projects || []), newProject],
-      bankAccounts: accounts,
+      bankAccounts: [
+        ...(appState?.bankAccounts || []),
+        ...accounts.map(account => ({ ...account, projectId: account.projectId || newProject.id })),
+      ],
       capitalEntries: [...(appState?.capitalEntries || [])],
       transactions: [...(appState?.transactions || [])],
       parties: appState?.parties || [],
@@ -784,7 +789,11 @@ export function App() {
       return;
     }
     try {
-      const bankAccountId = 'BNK-02';
+      const bankAccountId = currentBankAccounts[0]?.id;
+      if (!bankAccountId) {
+        showToast('⚠️ Pembayaran ditolak: project aktif belum memiliki rekening kas/bank. Tambahkan rekening terlebih dahulu.');
+        return;
+      }
       const tx = createContractPaymentTransaction(appState, contract, amount, bankAccountId, `${activeRole} Finance`, activeRole);
       const posted = postTransaction(appState, tx, `${activeRole} Finance`, activeRole);
       if (!posted.validation.valid) {
