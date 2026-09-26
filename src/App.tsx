@@ -957,7 +957,6 @@ export function App() {
                     if (found) setInspectingTx(found);
                   }
                 }}
-                onSimulateNewAlert={() => {}}
                 onMarkAllAsRead={() => {
                   updateAndPersist(prev => ({
                     ...prev,
