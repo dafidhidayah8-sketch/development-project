@@ -40,17 +40,18 @@ export function resolveBankAccount(
 ): BankAccount | undefined {
   if (bankAccountId) return accounts.find(account => account.id === bankAccountId);
 
+  const matches = (name: string) => accounts.find(a => a.bankName.trim().toLowerCase().includes(name));
   switch (paymentMethod) {
     case 'TRANSFER_BCA':
-      return accounts.find(a => a.bankName === 'Bank BCA') ?? accounts.find(a => a.id === 'BNK-02');
+      return matches('bca');
     case 'TRANSFER_MANDIRI':
-      return accounts.find(a => a.bankName === 'Bank Mandiri') ?? accounts.find(a => a.id === 'BNK-03');
+      return matches('mandiri');
     case 'TRANSFER_BRI':
-      return accounts.find(a => a.bankName === 'Bank BRI') ?? accounts.find(a => a.id === 'BNK-04');
+      return matches('bri');
     case 'PETTY_CASH':
-      return accounts.find(a => a.bankName === 'Imprest Fund') ?? accounts.find(a => a.id === 'BNK-05');
+      return matches('petty') ?? matches('kas');
     case 'KAS_PROYEK':
-      return accounts.find(a => a.bankName === 'Kas Tunai') ?? accounts.find(a => a.id === 'BNK-01');
+      return matches('kas');
     default:
       return undefined;
   }
@@ -102,7 +103,10 @@ export function validateTransaction(state: AppState, tx: Transaction): EngineVal
   }
 
   if (tx.isPaid) {
-    const account = resolveBankAccount(state.bankAccounts, tx.bankAccountId, tx.paymentMethod);
+    const projectAccounts = state.bankAccounts.filter(account =>
+      !account.projectId ? state.projects.length === 1 : account.projectId === tx.projectId
+    );
+    const account = resolveBankAccount(projectAccounts, tx.bankAccountId, tx.paymentMethod);
     if (tx.type !== 'TRANSFER' && !account) {
       errors.push('Rekening/kas sumber pembayaran tidak dapat ditentukan.');
     }
@@ -200,7 +204,10 @@ function applyCashMovement(
     return { accounts };
   }
 
-  const account = resolveBankAccount(accounts, tx.bankAccountId, tx.paymentMethod);
+  const projectAccounts = accounts.filter(account =>
+    !account.projectId ? true : account.projectId === tx.projectId
+  );
+  const account = resolveBankAccount(projectAccounts, tx.bankAccountId, tx.paymentMethod);
   if (!account) return { accounts };
 
   const delta = tx.type === 'EXPENSE' || tx.type === 'TRANSFER'
