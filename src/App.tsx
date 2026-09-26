@@ -860,6 +860,64 @@ export function App() {
   // MAIN RUNNING APPLICATION
   // ---------------------------------------------------------------------------
   const pendingApprovalsCount = currentTransactions.filter(t => t.status === 'SUBMITTED' || t.status === 'VERIFIED').length;
+
+  // Control checks are derived from the active project's real state. Demo-only case IDs are not used here.
+  const dynamicControlChecks: ControlCheckItem[] = (() => {
+    const unclassified = currentTransactions.filter(t => !t.costCode || t.costCode === 'UNC-999' || t.category === 'UNCLASSIFIED');
+    const missingBank = currentTransactions.filter(t => t.isPaid && !t.bankAccountId && !['KAS_PROYEK', 'PETTY_CASH'].includes(t.paymentMethod));
+    const bankDifference = currentBankAccounts.reduce((sum, account) => sum + Math.abs(account.unreconciledDifference || 0), 0);
+    const overBudget = currentCostCodes.filter(c => c.actualAmount > c.budgetAllocated);
+    const duplicateKeys = currentTransactions.filter((tx, index, all) => tx.idempotencyKey && all.findIndex(other => other.idempotencyKey === tx.idempotencyKey) !== index);
+
+    return [
+      {
+        code: 'C-001',
+        name: 'Transaksi tanpa Cost Code valid',
+        status: unclassified.length ? 'WARNING' : 'PASS',
+        count: unclassified.length,
+        impactAmount: unclassified.reduce((sum, t) => sum + t.totalAmount, 0),
+        description: unclassified.length ? 'Ada transaksi aktif yang belum memiliki klasifikasi biaya yang dapat ditelusuri.' : 'Semua transaksi aktif memiliki klasifikasi biaya.',
+        actionRequired: unclassified.length ? 'Lengkapi atau reklasifikasi Cost Code sebelum transaksi ditutup.' : 'Tidak ada tindakan.'
+      },
+      {
+        code: 'C-002',
+        name: 'Pembayaran tanpa rekening sumber',
+        status: missingBank.length ? 'CRITICAL_BLOCK' : 'PASS',
+        count: missingBank.length,
+        impactAmount: missingBank.reduce((sum, t) => sum + t.paidAmount, 0),
+        description: missingBank.length ? 'Transaksi berstatus dibayar belum menunjuk rekening kas/bank sumber.' : 'Semua pembayaran non-tunai memiliki rekening sumber.',
+        actionRequired: missingBank.length ? 'Lengkapi rekening sumber sebelum rekonsiliasi.' : 'Tidak ada tindakan.'
+      },
+      {
+        code: 'C-003',
+        name: 'Selisih rekonsiliasi bank',
+        status: bankDifference > 0 ? 'WARNING' : 'PASS',
+        count: currentBankAccounts.filter(a => Math.abs(a.unreconciledDifference || 0) > 0).length,
+        impactAmount: bankDifference,
+        description: bankDifference > 0 ? 'Masih terdapat saldo buku vs rekening koran yang belum direkonsiliasi.' : 'Tidak ada selisih rekonsiliasi pada rekening project aktif.',
+        actionRequired: bankDifference > 0 ? 'Periksa mutasi bank dan lakukan rekonsiliasi dengan bukti.' : 'Tidak ada tindakan.'
+      },
+      {
+        code: 'C-004',
+        name: 'Cost Code melewati anggaran',
+        status: overBudget.length ? 'WARNING' : 'PASS',
+        count: overBudget.length,
+        impactAmount: overBudget.reduce((sum, c) => sum + Math.max(0, c.actualAmount - c.budgetAllocated), 0),
+        description: overBudget.length ? 'Ada Cost Code dengan realisasi aktual melebihi alokasi budget.' : 'Tidak ada Cost Code yang melewati budget.',
+        actionRequired: overBudget.length ? 'Review komitmen, perubahan RAB, dan forecast penyelesaian.' : 'Tidak ada tindakan.'
+      },
+      {
+        code: 'C-005',
+        name: 'Idempotency key duplikat',
+        status: duplicateKeys.length ? 'CRITICAL_BLOCK' : 'PASS',
+        count: duplicateKeys.length,
+        impactAmount: duplicateKeys.reduce((sum, t) => sum + t.totalAmount, 0),
+        description: duplicateKeys.length ? 'Ditemukan lebih dari satu transaksi menggunakan idempotency key yang sama.' : 'Tidak ada duplikasi idempotency key.',
+        actionRequired: duplicateKeys.length ? 'Hentikan posting terkait dan lakukan pemeriksaan duplikasi.' : 'Tidak ada tindakan.'
+      }
+    ];
+  })();
+
   const isSecondaryActive = ['aging', 'customer_ar', 'po_tracking', 'mitra', 'control_checks', 'notification_history'].includes(activeTab);
 
   return (
@@ -1231,7 +1289,7 @@ export function App() {
             project={activeProject}
             bankAccounts={currentBankAccounts}
             transactions={currentTransactions}
-            controlChecks={INITIAL_CONTROL_CHECKS}
+            controlChecks={dynamicControlChecks}
             agingItems={currentAgingItems}
             activeRole={activeRole}
             onOpenOperatorInput={() => setIsOperatorModalOpen(true)}
