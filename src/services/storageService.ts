@@ -102,9 +102,9 @@ export function loadAppState(): AppState | null {
       auditLogs: parsed.auditLogs || [],
       wbsNodes: parsed.wbsNodes || [],
       costCodes: parsed.costCodes || [],
-      workOrders: parsed.workOrders || INITIAL_WORK_ORDERS,
-      equipmentAssets: parsed.equipmentAssets || INITIAL_EQUIPMENT_ASSETS,
-      internalDepartments: parsed.internalDepartments || INITIAL_INTERNAL_DEPARTMENTS,
+      workOrders: Array.isArray(parsed.workOrders) ? parsed.workOrders : [],
+      equipmentAssets: Array.isArray(parsed.equipmentAssets) ? parsed.equipmentAssets : [],
+      internalDepartments: Array.isArray(parsed.internalDepartments) ? parsed.internalDepartments : [],
       syncQueue: parsed.syncQueue || [],
       integrationConfig: parsed.integrationConfig || DEFAULT_INTEGRATION_CONFIG,
     };
