@@ -829,7 +829,7 @@ export function App() {
       const nextState = {
         ...posted.state,
         poContracts: updatedContracts,
-        syncQueue: enqueue(posted.state.syncQueue, 'PO_CONTRACT', contractId, 'UPDATE', { contractId, paidAmount: paid })
+        syncQueue: enqueueSync(posted.state.syncQueue, 'PO_CONTRACT', contractId, 'UPDATE', { contractId, paidAmount: paid })
       };
       setAppState(nextState);
       saveAppState(nextState);
