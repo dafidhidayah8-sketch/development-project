@@ -15,6 +15,17 @@ import type { AppState } from './storageService';
 
 const env = import.meta.env;
 
+// Firebase Web configuration is intentionally public client configuration.
+// Production deployments can override every value through VITE_FIREBASE_* environment variables.
+const DEFAULT_FIREBASE_CONFIG: FirebaseRuntimeConfig = {
+  apiKey: 'AIzaSyCdHXUWvdrzIlljG3ZWZNncKqkEczywVEc',
+  authDomain: 'pt-gema-abadi-nugraha.firebaseapp.com',
+  projectId: 'pt-gema-abadi-nugraha',
+  storageBucket: 'pt-gema-abadi-nugraha.firebasestorage.app',
+  messagingSenderId: '551640161272',
+  appId: '1:551640161272:web:3e70a13afea1c9ecc9540d',
+};
+
 export interface FirebaseRuntimeConfig {
   apiKey: string;
   authDomain: string;
@@ -43,7 +54,9 @@ export function getFirebaseConfig(): FirebaseRuntimeConfig | null {
     messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID,
     appId: env.VITE_FIREBASE_APP_ID,
   };
-  return requiredKeys.every(key => Boolean(env[key])) ? values : null;
+  return requiredKeys.every(key => Boolean(env[key]))
+    ? values
+    : DEFAULT_FIREBASE_CONFIG;
 }
 
 let connectionPromise: Promise<FirebaseConnection> | null = null;
