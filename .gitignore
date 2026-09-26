@@ -6,3 +6,9 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Firebase / mobile credentials (do not commit)
+google-services.json
+**/google-services.json
+**/serviceAccountKey.json
+**/*service-account*.json
