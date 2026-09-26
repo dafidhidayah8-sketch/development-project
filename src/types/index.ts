@@ -639,6 +639,8 @@ export interface Transaction {
 // --- Bank Account Entity ---
 export interface BankAccount {
   id: string;
+  /** Project scope. Optional for backwards compatibility with older saved data. */
+  projectId?: string;
   name: string; // e.g. "Bank BCA Proyek"
   accountNumber: string;
   bankName: string;
